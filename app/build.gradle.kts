@@ -11,8 +11,8 @@ android {
         applicationId = "ab.inque.converter"
         minSdk = 27
         targetSdk = 35
-        versionCode = 4
-        versionName = "4.0"
+        versionCode = 5
+        versionName = "0.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -26,6 +26,7 @@ android {
             )
         }
     }
+    
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
@@ -38,6 +39,18 @@ android {
     }
     lint {
         disable.add("NullSafeMutableLiveData")
+    }
+    packaging {
+        resources {
+            excludes.add("META-INF/native-image/**")
+            excludes.add("META-INF/licenses/**")
+            excludes.add("META-INF/DEPENDENCIES")
+            excludes.add("META-INF/INDEX.LIST")
+            excludes.add("META-INF/NOTICE")
+            excludes.add("META-INF/LICENSE")
+            excludes.add("META-INF/LICENSE.txt")
+            excludes.add("META-INF/NOTICE.txt")
+        }
     }
 }
 
@@ -54,6 +67,9 @@ dependencies {
     implementation("com.itextpdf:html2pdf:4.0.5")
     // EPUB handling
     implementation("org.jsoup:jsoup:1.16.2")
+    // Word document creation
+    implementation("org.apache.poi:poi:5.2.4")
+    implementation("org.apache.poi:poi-ooxml:5.2.4")
     // Coroutines for async operations
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0")

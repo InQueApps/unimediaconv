@@ -46,7 +46,7 @@ class ConverterViewModel : ViewModel() {
         _state.value = _state.value.copy(targetFormat = targetFormat)
     }
 
-    fun convertFile(context: Context) {
+    fun convertFile(context: Context, scale: Float? = null) {
         val currentState = _state.value
         val selectedFile = currentState.selectedFile ?: return
         val targetFormat = currentState.targetFormat ?: return
@@ -75,19 +75,18 @@ class ConverterViewModel : ViewModel() {
                     
                     // Perform conversion using UniversalConverter
                     val universalConverter = UniversalConverter()
-                    var lastProgress = 0f
                     val outputFile = universalConverter.convertFile(
                         tempFile,
                         targetFormat,
-                        context
-                    ) { progress ->
-                        // Just update a local variable; we'll post to state in the IO coroutine
-                        lastProgress = progress
-                    }
-                    // After conversion, update progress to 1.0
-                    withContext(kotlinx.coroutines.Dispatchers.Main) {
-                        _state.value = _state.value.copy(progress = lastProgress)
-                    }
+                        context,
+                        { progress ->
+                            // Update progress immediately in the main thread
+                            viewModelScope.launch(kotlinx.coroutines.Dispatchers.Main) {
+                                _state.value = _state.value.copy(progress = progress)
+                            }
+                        },
+                        scale
+                    )
                     
                     // Clean up temp file
                     tempFile.delete()

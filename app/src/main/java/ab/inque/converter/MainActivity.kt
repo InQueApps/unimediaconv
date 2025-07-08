@@ -26,6 +26,11 @@ class MainActivity : ComponentActivity() {
     private var fileTypeAdapter: ArrayAdapter<String>? = null
     private var fromFormatAdapter: ArrayAdapter<String>? = null
     private var toFormatAdapter: ArrayAdapter<String>? = null
+    
+    // Image scaling variables
+    private var originalImageWidth: Int = 0
+    private var originalImageHeight: Int = 0
+    private var isWidthSelected: Boolean = true
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -43,6 +48,35 @@ class MainActivity : ComponentActivity() {
         uri?.let {
             selectedFileUri = it
             selectedFileName = getFileName(it) ?: "unknown_file"
+            
+            // Detect file type and update UI accordingly
+            val fileExtension = selectedFileName.substringAfterLast('.', "")
+            android.util.Log.d("MainActivity", "File extension: $fileExtension")
+            val detectedFormat = FileFormat.fromExtension(fileExtension)
+            android.util.Log.d("MainActivity", "Detected format: ${detectedFormat?.displayName}")
+            
+            if (detectedFormat != null) {
+                android.util.Log.d("MainActivity", "File category: ${detectedFormat.category}")
+                
+                // Load image dimensions if it's an image file
+                if (detectedFormat.category == FormatCategory.IMAGE) {
+                    android.util.Log.d("MainActivity", "Image file detected, loading dimensions")
+                    loadImageDimensions(it)
+                    binding.imageScalingCard.visibility = View.VISIBLE
+                } else {
+                    binding.imageScalingCard.visibility = View.GONE
+                }
+                
+                // Show conversion format section and populate "To" formats
+                binding.conversionCard.visibility = View.VISIBLE
+                populateToFormats(detectedFormat)
+                
+                android.util.Log.d("MainActivity", "Conversion options populated for ${detectedFormat.displayName}")
+            } else {
+                android.util.Log.e("MainActivity", "Could not detect file format for extension: $fileExtension")
+                Toast.makeText(this, "Unsupported file format: $fileExtension", Toast.LENGTH_SHORT).show()
+            }
+            
             updateUI()
         }
     }
@@ -70,6 +104,17 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun setupClickListeners() {
+        // Setup expandable header
+        binding.expandArrow.setOnClickListener {
+            binding.expandableInfo.visibility = View.VISIBLE
+            binding.expandArrow.visibility = View.GONE
+        }
+        
+        binding.collapseArrow.setOnClickListener {
+            binding.expandableInfo.visibility = View.GONE
+            binding.expandArrow.visibility = View.VISIBLE
+        }
+        
         binding.selectFileButton.setOnClickListener {
             if (checkStoragePermission()) {
                 openFilePicker()
@@ -77,6 +122,9 @@ class MainActivity : ComponentActivity() {
                 permissionLauncher.launch(Manifest.permission.READ_EXTERNAL_STORAGE)
             }
         }
+        
+        // Setup image scaling listeners
+        setupImageScalingListeners()
 
         binding.convertButton.setOnClickListener {
             selectedFileUri?.let { uri ->
@@ -86,7 +134,10 @@ class MainActivity : ComponentActivity() {
                 val targetFormat = FileFormat.values().find { it.displayName == selectedToFormat }
                 if (targetFormat != null) {
                     viewModel.setTargetFormat(targetFormat)
-                    viewModel.convertFile(this)
+                    
+                    // Get image scaling if applicable
+                    val scale = getImageScale()
+                    viewModel.convertFile(this, scale)
                 } else {
                     Toast.makeText(this, "Please select a target format", Toast.LENGTH_SHORT).show()
                 }
@@ -135,16 +186,13 @@ class MainActivity : ComponentActivity() {
             binding.selectedFileName.visibility = View.VISIBLE
             binding.selectFileButton.text = "Change File"
             
-            // Show conversion section
-            binding.conversionCard.visibility = View.VISIBLE
-            
             // Update target format display
             val targetFormatText = state.targetFormat?.displayName ?: "Select target format"
-            binding.targetFormat.text = "Convert to $targetFormatText"
         } else {
             binding.selectedFileName.visibility = View.GONE
             binding.selectFileButton.text = "Choose File"
             binding.conversionCard.visibility = View.GONE
+            binding.imageScalingCard.visibility = View.GONE
         }
 
         // Update progress
@@ -154,9 +202,12 @@ class MainActivity : ComponentActivity() {
             binding.progressText.text = "${(state.progress * 100).toInt()}%"
             
             val statusText = when {
-                state.progress < 0.3f -> "Preparing file..."
-                state.progress < 0.5f -> "Processing content..."
-                state.progress < 0.8f -> "Generating output..."
+                state.progress < 0.1f -> "Starting conversion..."
+                state.progress < 0.2f -> "Validating file..."
+                state.progress < 0.3f -> "Extracting content..."
+                state.progress < 0.5f -> "Processing data..."
+                state.progress < 0.7f -> "Converting format..."
+                state.progress < 0.9f -> "Generating output..."
                 else -> "Finalizing..."
             }
             binding.statusText.text = statusText
@@ -192,7 +243,6 @@ class MainActivity : ComponentActivity() {
             
             // Update target format display
             val targetFormatText = viewModel.state.value.targetFormat?.displayName ?: "Select target format"
-            binding.targetFormat.text = "Convert to $targetFormatText"
         }
     }
 
@@ -201,15 +251,14 @@ class MainActivity : ComponentActivity() {
         selectedFileName = ""
         binding.selectedFileName.visibility = View.GONE
         binding.selectFileButton.text = "Choose File"
-        binding.fileSelectionCard.visibility = View.GONE
+        binding.fileSelectionCard.visibility = View.VISIBLE
         binding.conversionCard.visibility = View.GONE
+        binding.imageScalingCard.visibility = View.GONE
         binding.progressCard.visibility = View.GONE
         binding.resultCard.visibility = View.GONE
         binding.errorCard.visibility = View.GONE
         
         // Reset spinners
-        binding.fileTypeSpinner.setText("", false)
-        binding.fromFormatSpinner.setText("", false)
         binding.toFormatSpinner.setText("", false)
         
         viewModel.resetState()
@@ -220,81 +269,17 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun setupFormatSpinners() {
-        // Setup file type category spinner
-        val fileTypes = listOf("Document", "Image", "Audio", "Video")
-        fileTypeAdapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, fileTypes)
-        binding.fileTypeSpinner.setAdapter(fileTypeAdapter)
-        
-        // Setup "From" format spinner (initially empty)
-        fromFormatAdapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, emptyList())
-        binding.fromFormatSpinner.setAdapter(fromFormatAdapter)
-        
         // Setup "To" format spinner (initially empty)
         toFormatAdapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, emptyList())
         binding.toFormatSpinner.setAdapter(toFormatAdapter)
         
-        // Update format options when file type changes
-        binding.fileTypeSpinner.setOnItemClickListener { _, _, position, _ ->
-            val selectedCategory = when (position) {
-                0 -> FormatCategory.DOCUMENT
-                1 -> FormatCategory.IMAGE
-                2 -> FormatCategory.AUDIO
-                3 -> FormatCategory.VIDEO
-                else -> FormatCategory.DOCUMENT
-            }
-            
-            val formatsForCategory = FileFormat.getFormatsByCategory(selectedCategory)
-            val formatNames = formatsForCategory.map { it.displayName }
-            
-            // Update "From" format spinner
-            fromFormatAdapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, formatNames)
-            binding.fromFormatSpinner.setAdapter(fromFormatAdapter)
-            binding.fromFormatSpinner.setText("", false)
-            
-            // Clear "To" format spinner
-            toFormatAdapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, emptyList())
-            binding.toFormatSpinner.setAdapter(toFormatAdapter)
-            binding.toFormatSpinner.setText("", false)
-            
-            // Show file selection section
-            binding.fileSelectionCard.visibility = View.VISIBLE
-        }
-        
-        // Update "To" formats when "From" format changes
-        binding.fromFormatSpinner.setOnItemClickListener { _, _, position, _ ->
-            val selectedCategory = when (binding.fileTypeSpinner.text.toString()) {
-                "Document" -> FormatCategory.DOCUMENT
-                "Image" -> FormatCategory.IMAGE
-                "Audio" -> FormatCategory.AUDIO
-                "Video" -> FormatCategory.VIDEO
-                else -> FormatCategory.DOCUMENT
-            }
-            
-            val formatsForCategory = FileFormat.getFormatsByCategory(selectedCategory)
-            if (position < formatsForCategory.size) {
-                val selectedFromFormat = formatsForCategory[position]
-                val compatibleFormats = FileFormat.getSupportedConversions(selectedFromFormat)
-                val compatibleFormatNames = compatibleFormats.map { it.displayName }
-                
-                toFormatAdapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, compatibleFormatNames)
-                binding.toFormatSpinner.setAdapter(toFormatAdapter)
-                binding.toFormatSpinner.setText("", false)
-            }
-        }
+        // Show file selection section immediately
+        binding.fileSelectionCard.visibility = View.VISIBLE
     }
 
     private fun openFilePicker() {
-        val selectedFileType = binding.fileTypeSpinner.text.toString()
-        
-        val mimeType = when (selectedFileType) {
-            "Document" -> "*/*"
-            "Image" -> "image/*"
-            "Audio" -> "audio/*"
-            "Video" -> "video/*"
-            else -> "*/*"
-        }
-        
-        filePickerLauncher.launch(mimeType)
+        // Allow all file types since we'll detect the type from the file extension
+        filePickerLauncher.launch("*/*")
     }
 
     private fun getFileName(uri: Uri): String? {
@@ -311,10 +296,30 @@ class MainActivity : ComponentActivity() {
 
     private fun getMimeType(fileName: String): String {
         return when {
+            // Document formats
             fileName.endsWith(".pdf", ignoreCase = true) -> "application/pdf"
             fileName.endsWith(".epub", ignoreCase = true) -> "application/epub+zip"
             fileName.endsWith(".html", ignoreCase = true) -> "text/html"
             fileName.endsWith(".txt", ignoreCase = true) -> "text/plain"
+            fileName.endsWith(".rtf", ignoreCase = true) -> "application/rtf"
+            fileName.endsWith(".docx", ignoreCase = true) -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            
+            // Image formats
+            fileName.endsWith(".jpg", ignoreCase = true) -> "image/jpeg"
+            fileName.endsWith(".jpeg", ignoreCase = true) -> "image/jpeg"
+            fileName.endsWith(".png", ignoreCase = true) -> "image/png"
+            fileName.endsWith(".webp", ignoreCase = true) -> "image/webp"
+            fileName.endsWith(".bmp", ignoreCase = true) -> "image/bmp"
+            fileName.endsWith(".tiff", ignoreCase = true) -> "image/tiff"
+            fileName.endsWith(".tif", ignoreCase = true) -> "image/tiff"
+            
+            // Video formats
+            fileName.endsWith(".mp4", ignoreCase = true) -> "video/mp4"
+            fileName.endsWith(".avi", ignoreCase = true) -> "video/x-msvideo"
+            fileName.endsWith(".mov", ignoreCase = true) -> "video/quicktime"
+            fileName.endsWith(".mkv", ignoreCase = true) -> "video/x-matroska"
+            fileName.endsWith(".webm", ignoreCase = true) -> "video/webm"
+            
             else -> "application/octet-stream"
         }
     }
@@ -335,13 +340,34 @@ class MainActivity : ComponentActivity() {
                 "${packageName}.provider",
                 file
             )
+            val mimeType = getMimeType(file.name)
+            android.util.Log.d("MainActivity", "Opening file: ${file.name} with MIME type: $mimeType")
+            
             val intent = Intent(Intent.ACTION_VIEW).apply {
-                setDataAndType(uri, getMimeType(file.name))
+                setDataAndType(uri, mimeType)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
-            startActivity(Intent.createChooser(intent, "Open with"))
+            
+            // Check if there's an app to handle this intent
+            if (intent.resolveActivity(packageManager) != null) {
+                startActivity(Intent.createChooser(intent, "Open with"))
+            } else {
+                // No app found, try with a more generic MIME type
+                val genericIntent = Intent(Intent.ACTION_VIEW).apply {
+                    setDataAndType(uri, "*/*")
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                
+                if (genericIntent.resolveActivity(packageManager) != null) {
+                    startActivity(Intent.createChooser(genericIntent, "Open with"))
+                } else {
+                    Toast.makeText(this, "No app found to open this file type", Toast.LENGTH_SHORT).show()
+                    shareFile(file)
+                }
+            }
         } catch (e: Exception) {
-            Toast.makeText(this, "No app found to open this file", Toast.LENGTH_SHORT).show()
+            android.util.Log.e("MainActivity", "Error opening file: ${e.message}")
+            Toast.makeText(this, "Error opening file: ${e.message}", Toast.LENGTH_SHORT).show()
             shareFile(file)
         }
     }
@@ -405,5 +431,108 @@ class MainActivity : ComponentActivity() {
         } catch (e: Exception) {
             uri.lastPathSegment
         }
+    }
+    
+    private fun setupImageScalingListeners() {
+        // Radio button listeners
+        binding.widthRadio.setOnCheckedChangeListener { _, isChecked ->
+            if (isChecked) {
+                isWidthSelected = true
+                updateDimensionInput()
+            }
+        }
+        
+        binding.heightRadio.setOnCheckedChangeListener { _, isChecked ->
+            if (isChecked) {
+                isWidthSelected = false
+                updateDimensionInput()
+            }
+        }
+        
+        // Text input listener
+        binding.newDimensionInput.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: android.text.Editable?) {
+                updateNewSizePreview()
+            }
+        })
+    }
+    
+    private fun updateDimensionInput() {
+        if (originalImageWidth > 0 && originalImageHeight > 0) {
+            val currentValue = binding.newDimensionInput.text.toString().toIntOrNull() ?: 0
+            val newValue = if (isWidthSelected) originalImageWidth else originalImageHeight
+            binding.newDimensionInput.setText(newValue.toString())
+            updateNewSizePreview()
+        }
+    }
+    
+    private fun updateNewSizePreview() {
+        if (originalImageWidth > 0 && originalImageHeight > 0) {
+            val inputValue = binding.newDimensionInput.text.toString().toIntOrNull() ?: 0
+            if (inputValue > 0) {
+                val newWidth: Int
+                val newHeight: Int
+                
+                if (isWidthSelected) {
+                    newWidth = inputValue
+                    newHeight = (inputValue * originalImageHeight / originalImageWidth)
+                } else {
+                    newHeight = inputValue
+                    newWidth = (inputValue * originalImageWidth / originalImageHeight)
+                }
+                
+                binding.newSizePreview.text = "New size: ${newWidth} x ${newHeight}"
+            }
+        }
+    }
+    
+    private fun getImageScale(): Float? {
+        // Only return scale if image scaling card is visible (image conversion)
+        if (binding.imageScalingCard.visibility == android.view.View.VISIBLE) {
+            val inputValue = binding.newDimensionInput.text.toString().toIntOrNull() ?: 0
+            if (inputValue > 0 && originalImageWidth > 0 && originalImageHeight > 0) {
+                return if (isWidthSelected) {
+                    inputValue.toFloat() / originalImageWidth
+                } else {
+                    inputValue.toFloat() / originalImageHeight
+                }
+            }
+        }
+        return null
+    }
+    
+    private fun loadImageDimensions(uri: Uri) {
+        try {
+            val inputStream = contentResolver.openInputStream(uri)
+            val options = android.graphics.BitmapFactory.Options().apply {
+                inJustDecodeBounds = true
+            }
+            android.graphics.BitmapFactory.decodeStream(inputStream, null, options)
+            inputStream?.close()
+            
+            originalImageWidth = options.outWidth
+            originalImageHeight = options.outHeight
+            
+            // Update UI
+            binding.originalImageInfo.text = "Original size: ${originalImageWidth} x ${originalImageHeight}"
+            binding.newDimensionInput.setText(originalImageWidth.toString())
+            updateNewSizePreview()
+            
+        } catch (e: Exception) {
+            // Handle error silently
+            originalImageWidth = 0
+            originalImageHeight = 0
+        }
+    }
+    
+    private fun populateToFormats(sourceFormat: FileFormat) {
+        val compatibleFormats = FileFormat.getSupportedConversions(sourceFormat)
+        val compatibleFormatNames = compatibleFormats.map { it.displayName }
+        
+        toFormatAdapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, compatibleFormatNames)
+        binding.toFormatSpinner.setAdapter(toFormatAdapter)
+        binding.toFormatSpinner.setText("", false)
     }
 }

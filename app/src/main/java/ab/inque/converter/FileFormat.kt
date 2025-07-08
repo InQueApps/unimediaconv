@@ -21,13 +21,6 @@ enum class FileFormat(
     BMP("Bitmap Image", "bmp", "image/bmp", FormatCategory.IMAGE),
     TIFF("TIFF Image", "tiff", "image/tiff", FormatCategory.IMAGE),
     
-    // Audio Formats
-    MP3("MP3 Audio", "mp3", "audio/mpeg", FormatCategory.AUDIO),
-    WAV("WAV Audio", "wav", "audio/wav", FormatCategory.AUDIO),
-    FLAC("FLAC Audio", "flac", "audio/flac", FormatCategory.AUDIO),
-    AAC("AAC Audio", "aac", "audio/aac", FormatCategory.AUDIO),
-    OGG("OGG Audio", "ogg", "audio/ogg", FormatCategory.AUDIO),
-    
     // Video Formats
     MP4("MP4 Video", "mp4", "video/mp4", FormatCategory.VIDEO),
     AVI("AVI Video", "avi", "video/x-msvideo", FormatCategory.VIDEO),
@@ -52,7 +45,6 @@ enum class FileFormat(
             return when (fromFormat.category) {
                 FormatCategory.DOCUMENT -> getFormatsByCategory(FormatCategory.DOCUMENT)
                 FormatCategory.IMAGE -> getFormatsByCategory(FormatCategory.IMAGE)
-                FormatCategory.AUDIO -> getFormatsByCategory(FormatCategory.AUDIO)
                 FormatCategory.VIDEO -> getFormatsByCategory(FormatCategory.VIDEO)
             }.filter { it != fromFormat }
         }
@@ -62,6 +54,5 @@ enum class FileFormat(
 enum class FormatCategory {
     DOCUMENT,
     IMAGE,
-    AUDIO,
     VIDEO
 } 
