@@ -1,0 +1,10 @@
+<resources>
+    <string name="app_name">Universal Converter</string>
+    <string name="app_description">Convert between EPUB and PDF formats</string>
+    <string name="select_file">Select File</string>
+    <string name="convert_file">Convert File</string>
+    <string name="converting">Converting...</string>
+    <string name="conversion_complete">Conversion Complete!</string>
+    <string name="share_file">Share File</string>
+    <string name="error_occurred">An error occurred</string>
+</resources>
