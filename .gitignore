@@ -1,3 +1,4 @@
+# Keep image assets tracked (app/res/drawable, app/res/mipmap-*, media/) — do not add *.png, *.webp, or /media here.
 *.iml
 .gradle
 /local.properties
@@ -13,3 +14,5 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+/app/release/*

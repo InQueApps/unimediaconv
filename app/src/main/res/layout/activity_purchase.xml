@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <ImageView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:src="@drawable/background"
+        android:scaleType="centerCrop"
+        android:contentDescription="@null" />
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@android:color/transparent"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="24dp"
+            android:gravity="center_horizontal">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="32dp"
+                android:text="@string/title_purchase"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                android:textColor="@color/btn_glass_text"
+                android:gravity="center" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:layout_marginBottom="32dp"
+                android:text="@string/purchase_description"
+                android:textSize="16sp"
+                android:textColor="@color/btn_glass_text"
+                android:gravity="center" />
+
+            <TextView
+                android:id="@+id/purchaseStatus"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                android:text="@string/purchase_status_connecting"
+                android:textSize="13sp"
+                android:textColor="@color/btn_glass_text"
+                android:alpha="0.9"
+                android:gravity="center" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/buyButton"
+                style="@style/Widget.UniversalConverter.Button.Filled"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:text="@string/button_buy_price"
+                android:textSize="18sp"
+                app:icon="@android:drawable/ic_menu_save"
+                app:iconGravity="textStart" />
+        </LinearLayout>
+    </ScrollView>
+</FrameLayout>

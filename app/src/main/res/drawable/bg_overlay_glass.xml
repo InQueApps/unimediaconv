@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Slightly transparent frosted glass (same style as Get Started / landing) -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#55FFFFFF" />
+            <corners android:radius="20dp" />
+        </shape>
+    </item>
+    <!-- Glassy light edge -->
+    <item>
+        <shape android:shape="rectangle">
+            <stroke
+                android:width="1.5dp"
+                android:color="#70FFFFFF" />
+            <corners android:radius="20dp" />
+            <solid android:color="@android:color/transparent" />
+        </shape>
+    </item>
+</layer-list>

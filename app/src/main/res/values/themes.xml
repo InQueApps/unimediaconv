@@ -1,4 +1,41 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.UniversalConverter" parent="Theme.Material3.DayNight.NoActionBar" />
+    <style name="Theme.UniversalConverter" parent="Theme.Material3.Light.NoActionBar">
+        <item name="colorPrimary">@color/main_primary</item>
+        <item name="colorOnPrimary">@color/main_on_primary</item>
+        <item name="colorPrimaryContainer">@color/main_primary_container</item>
+        <item name="colorOnPrimaryContainer">@color/main_on_primary_container</item>
+
+        <item name="colorSecondary">@color/main_secondary</item>
+        <item name="colorOnSecondary">@color/main_on_secondary</item>
+        <item name="colorSecondaryContainer">@color/main_secondary_container</item>
+        <item name="colorOnSecondaryContainer">@color/main_on_secondary_container</item>
+
+        <item name="colorTertiary">@color/main_tertiary</item>
+        <item name="colorOnTertiary">@color/main_on_tertiary</item>
+        <item name="colorTertiaryContainer">@color/main_tertiary_container</item>
+        <item name="colorOnTertiaryContainer">@color/main_on_tertiary_container</item>
+
+        <item name="colorError">@color/main_error</item>
+        <item name="colorOnError">@color/main_on_error</item>
+        <item name="colorErrorContainer">@color/main_error_container</item>
+        <item name="colorOnErrorContainer">@color/main_on_error_container</item>
+
+        <item name="colorSurface">@color/main_surface</item>
+        <item name="colorOnSurface">@color/main_on_surface</item>
+        <item name="colorSurfaceVariant">@color/main_surface_variant</item>
+        <item name="colorOnSurfaceVariant">@color/main_on_surface_variant</item>
+
+        <item name="colorOutline">@color/main_outline</item>
+        <item name="colorOnBackground">@color/main_on_background</item>
+
+        <item name="android:colorBackground">@color/main_background</item>
+        <item name="android:statusBarColor">@color/main_status_bar</item>
+        <item name="android:navigationBarColor">@color/main_navigation_bar</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+
+        <item name="materialButtonStyle">@style/Widget.UniversalConverter.Button.Filled</item>
+        <item name="materialButtonOutlinedStyle">@style/Widget.UniversalConverter.Button.Glass</item>
+    </style>
 </resources>

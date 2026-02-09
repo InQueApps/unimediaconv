@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <!-- Background: preserve aspect ratio (centerCrop = fill, no stretch) -->
+    <ImageView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:src="@drawable/mainpage"
+        android:scaleType="centerCrop"
+        android:contentDescription="@null" />
+
+    <!-- Get Started button at the very bottom -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:orientation="vertical"
+        android:paddingStart="32dp"
+        android:paddingEnd="32dp"
+        android:paddingBottom="24dp">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/getStartedButton"
+            style="@style/Widget.UniversalConverter.Button.Glass.GetStarted"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:text="@string/button_get_started"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textAllCaps="false" />
+    </LinearLayout>
+</FrameLayout>

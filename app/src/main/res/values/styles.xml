@@ -1,3 +1,57 @@
 <resources>
-    <!-- You can add custom styles here if needed -->
-</resources> 
+    <!-- Filled dark blue button -->
+    <style name="Widget.UniversalConverter.Button.Filled" parent="Widget.Material3.Button">
+        <item name="android:background">@drawable/btn_filled_dark_blue</item>
+        <item name="android:textColor">@color/btn_filled_on</item>
+        <item name="iconTint">@color/btn_filled_on</item>
+        <item name="backgroundTint">@null</item>
+        <item name="cornerRadius">14dp</item>
+    </style>
+
+    <!-- Transparent dark blue with glassy edge -->
+    <style name="Widget.UniversalConverter.Button.Glass" parent="Widget.Material3.Button">
+        <item name="android:background">@drawable/btn_glass_dark_blue</item>
+        <item name="android:textColor">@color/btn_glass_text</item>
+        <item name="iconTint">@color/btn_glass_text</item>
+        <item name="backgroundTint">@null</item>
+        <item name="cornerRadius">14dp</item>
+    </style>
+
+    <!-- Dark purple filled (landing) -->
+    <style name="Widget.UniversalConverter.Button.Filled.Purple" parent="Widget.Material3.Button">
+        <item name="android:background">@drawable/btn_filled_dark_purple</item>
+        <item name="android:textColor">@color/btn_filled_on</item>
+        <item name="iconTint">@color/btn_filled_on</item>
+        <item name="backgroundTint">@null</item>
+        <item name="cornerRadius">14dp</item>
+    </style>
+
+    <!-- Glass purple (transparent, purple edge) -->
+    <style name="Widget.UniversalConverter.Button.Glass.Purple" parent="Widget.Material3.Button">
+        <item name="android:background">@drawable/btn_glass_dark_purple</item>
+        <item name="android:textColor">@color/btn_glass_purple_text</item>
+        <item name="iconTint">@color/btn_glass_purple_text</item>
+        <item name="backgroundTint">@null</item>
+        <item name="cornerRadius">14dp</item>
+        <item name="android:elevation">8dp</item>
+        <item name="android:stateListAnimator">@null</item>
+    </style>
+
+    <!-- Glass Get Started: slightly transparent, white text -->
+    <style name="Widget.UniversalConverter.Button.Glass.GetStarted" parent="Widget.Material3.Button">
+        <item name="android:background">@drawable/btn_glass_white_text</item>
+        <item name="android:textColor">@android:color/white</item>
+        <item name="iconTint">@android:color/white</item>
+        <item name="backgroundTint">@null</item>
+        <item name="cornerRadius">14dp</item>
+        <item name="android:elevation">6dp</item>
+        <item name="android:stateListAnimator">@null</item>
+    </style>
+
+    <!-- Icon button (glass style for header) -->
+    <style name="Widget.UniversalConverter.Button.Icon" parent="Widget.Material3.Button.Icon">
+        <item name="android:background">@drawable/btn_glass_round</item>
+        <item name="iconTint">@color/btn_glass_text</item>
+        <item name="backgroundTint">@null</item>
+    </style>
+</resources>

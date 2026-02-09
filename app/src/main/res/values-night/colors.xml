@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Blue palette -->
+    <color name="blue_50">#080B12</color>
+    <color name="blue_100">#0F1524</color>
+    <color name="blue_200">#16213A</color>
+    <color name="blue_300">#1D2D51</color>
+    <color name="blue_400">#26406F</color>
+    <color name="blue_500">#30548F</color>
+    <color name="blue_600">#3C69B0</color>
+    <color name="blue_700">#4C81D1</color>
+    <color name="blue_800">#5C9AEE</color>
+    <color name="blue_900">#9EC6FF</color>
+
+    <!-- Light blue accents -->
+    <color name="sky_50">#0A101D</color>
+    <color name="sky_100">#111B2F</color>
+    <color name="sky_200">#182741</color>
+    <color name="sky_300">#1F3355</color>
+    <color name="sky_400">#294672</color>
+    <color name="sky_500">#345A90</color>
+
+    <!-- Semantic tokens -->
+    <color name="main_background">#FF000000</color>
+    <color name="main_on_background">#FFD6E2F3</color>
+
+    <color name="main_surface">#FF0B0B0B</color>
+    <color name="main_on_surface">#FFE5EEFF</color>
+    <color name="main_surface_variant">#FF151923</color>
+    <color name="main_on_surface_variant">#FFB3C4E7</color>
+
+    <color name="main_primary">#CC4C81D1</color>
+    <color name="main_on_primary">#FFFFFFFF</color>
+    <color name="main_primary_container">#33213A63</color>
+    <color name="main_on_primary_container">#FFDBE7FF</color>
+
+    <color name="main_secondary">#AA345A90</color>
+    <color name="main_on_secondary">#FFFFFFFF</color>
+    <color name="main_secondary_container">#3315283F</color>
+    <color name="main_on_secondary_container">#FFD2E3FF</color>
+
+    <color name="main_tertiary">#CC6798FF</color>
+    <color name="main_on_tertiary">#FFFFFFFF</color>
+    <color name="main_tertiary_container">#33213557</color>
+    <color name="main_on_tertiary_container">#FFE6EEFF</color>
+
+    <color name="main_error">#FFF2B8B5</color>
+    <color name="main_on_error">#FF601410</color>
+    <color name="main_error_container">#FF8C1D18</color>
+    <color name="main_on_error_container">#FFF2B8B5</color>
+
+    <color name="main_outline">#FF3C4E68</color>
+
+    <color name="main_button">@color/main_primary</color>
+    <color name="main_button_text">@color/main_on_primary</color>
+    <color name="main_button_ripple">#4D6EA8FF</color>
+
+    <color name="main_card">#FF0E0F17</color>
+    <color name="main_chip">@color/main_surface_variant</color>
+    <color name="main_status_text">@color/blue_800</color>
+
+    <color name="main_status_bar">#FF000000</color>
+    <color name="main_navigation_bar">#FF000000</color>
+</resources>
+

@@ -170,10 +170,13 @@ class DocxConverter {
                     val runText = run.getText(0) ?: ""
                     text.append(runText)
                     
-                    // Check formatting
+                    // Check formatting (underline from getUnderline(), not strikethrough)
                     if (run.isBold) isBold = true
                     if (run.isItalic) isItalic = true
-                    if (run.isStrike) isUnderlined = true
+                    val underline = run.getUnderline()
+                    if (underline != null && underline != org.apache.poi.xwpf.usermodel.UnderlinePatterns.NONE) {
+                        isUnderlined = true
+                    }
                     
                     // Get font size
                     val runFontSize = run.fontSize

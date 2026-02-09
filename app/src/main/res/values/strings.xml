@@ -1,10 +1,96 @@
 <resources>
     <string name="app_name">Universal Converter</string>
     <string name="app_description">Convert between EPUB and PDF formats</string>
+    <string name="button_start_converting">Start Converting</string>
+    <string name="button_get_started">Get Started</string>
     <string name="select_file">Select File</string>
     <string name="convert_file">Convert File</string>
     <string name="converting">Converting...</string>
     <string name="conversion_complete">Conversion Complete!</string>
     <string name="share_file">Share File</string>
     <string name="error_occurred">An error occurred</string>
+
+    <!-- File selection -->
+    <string name="button_choose_file">Choose File</string>
+    <string name="button_choose_files">Choose Files</string>
+    <string name="button_change_file">Change File</string>
+    <string name="button_add_or_change_files">Add or change files</string>
+    <string name="label_selected_file">Selected: %1$s</string>
+    <string name="label_files_selected_count">%1$d files selected</string>
+    <string name="hint_select_file_to_preview">Select a file to preview</string>
+    <string name="status_converting_file_n_of_m">Converting file %1$d of %2$d…</string>
+    <string name="label_convert_cost">%1$d 💎</string>
+    <string name="title_convert_with_cost">3. Convert (%1$d 💎)</string>
+    <string name="label_output_as">Output as</string>
+    <string name="option_output_zip">Zip file</string>
+    <string name="option_output_separate">Separate files</string>
+
+    <!-- Errors and hints -->
+    <string name="error_storage_permission_required">Storage permission is required</string>
+    <string name="error_unsupported_format">Unsupported file format: %1$s</string>
+    <string name="error_select_target_format">Please select a target format</string>
+    <string name="error_opening_file">Error opening file: %1$s</string>
+    <string name="error_sharing_file">Error sharing file: %1$s</string>
+    <string name="error_saving_file">Error saving file: %1$s</string>
+    <string name="error_no_app_to_open">No app found to open this file type</string>
+    <string name="error_no_app_to_preview">No app found to preview this file type</string>
+    <string name="error_unable_to_preview">Unable to preview file</string>
+    <string name="label_points">%1$d points</string>
+    <string name="label_points_emoji">%1$d 💎</string>
+    <string name="label_unlimited">Unlimited</string>
+    <string name="button_get_more_points">Add points</string>
+    <string name="button_unlock_full">Premium</string>
+    <string name="toast_not_enough_points">Not enough points. This conversion needs %1$d points. Add points or go Premium.</string>
+    <string name="toast_video_watched">+%1$d points. You can convert again.</string>
+    <string name="toast_ad_not_ready">Loading ad... it will open automatically.</string>
+    <string name="toast_ad_load_failed">Ad failed to load. Please try again.</string>
+    <string name="title_purchase">Unlock full version</string>
+    <string name="purchase_description">Get unlimited conversions forever.</string>
+    <string name="button_buy_price">Buy for $3.99</string>
+    <string name="toast_purchase_success">Thank you! You have unlimited conversions.</string>
+    <string name="error_purchase_unavailable">Purchase is currently unavailable. Please try again in a moment.</string>
+    <string name="error_purchase_failed">Purchase failed. Please try again.</string>
+    <string name="error_purchase_loading">Loading purchase details. Please tap Buy again.</string>
+    <string name="error_purchase_unavailable_with_code">Purchase unavailable (code %1$d).</string>
+    <string name="error_purchase_failed_with_code">Purchase failed (code %1$d).</string>
+    <string name="error_purchase_product_not_found">Product %1$s not found in Play (code %2$d).</string>
+    <string name="error_purchase_no_offer">No subscription offer found for this product.</string>
+    <string name="purchase_status_connecting">Connecting to Google Play...</string>
+
+    <!-- Result -->
+    <string name="label_ready_to_save">Ready to save: %1$s</string>
+    <string name="label_file_size">Size: %1$s</string>
+    <string name="label_original_size">Original size: %1$d x %2$d</string>
+    <string name="toast_file_saved">File saved as: %1$s</string>
+    <string name="button_view">View</string>
+    <string name="button_share">Share</string>
+    <string name="button_save">Save</string>
+
+    <!-- Conversion status -->
+    <string name="status_starting">Starting conversion…</string>
+    <string name="status_validating">Validating file…</string>
+    <string name="status_extracting">Extracting content…</string>
+    <string name="status_processing">Processing data…</string>
+    <string name="status_converting">Converting format…</string>
+    <string name="status_generating">Generating output…</string>
+    <string name="status_finalizing">Finalizing…</string>
+
+    <!-- Info dialog -->
+    <string name="info_dialog_title">Universal Converter</string>
+    <string name="info_dialog_intro">Convert images, video, audio, and documents in one place.</string>
+    <string name="info_dialog_description">Select a file, choose a target format, and convert. Optional image scaling helps reduce file size. All conversions run on your device—your files stay private.</string>
+    <string name="info_dialog_section_images">Images</string>
+    <string name="info_dialog_images">• JPEG ↔ PNG\n• HEIC → JPEG/PNG (iPhone photos; .heic and .heif)\n• PNG → JPG (smaller size)\n• WEBP → JPG or PNG (from websites)\n• BMP, TIFF → PNG/JPEG\n• Any image → single-page PDF</string>
+    <string name="info_dialog_section_video">Video</string>
+    <string name="info_dialog_video">• MOV → MP4 (Apple → universal)\n• MP4 → MOV\n• MOV/MP4 ↔ WEBM, AVI, MKV (re-encode)\n• Video → WAV (extract audio track)</string>
+    <string name="info_dialog_section_audio">Audio</string>
+    <string name="info_dialog_audio">• MP3 ↔ WAV\n• M4A → WAV (Apple audio)\n• MP4/MOV → WAV (extract audio from video)\n• MP3 encoding from video is not supported; use WAV.</string>
+    <string name="info_dialog_section_documents">Documents</string>
+    <string name="info_dialog_documents">• PDF ↔ EPUB, DOCX, RTF, TXT\n• Images → PDF (one image = one page)\n• PDF → images: each page exported as JPG or PNG (delivered as a zip)</string>
+    <string name="info_dialog_formats_heading">Supported file types</string>
+    <string name="info_dialog_formats">Documents: PDF, EPUB, DOCX, TXT, RTF\nImages: JPG, PNG, WEBP, HEIC, BMP, TIFF\nVideo: MP4, MOV, AVI, MKV, WEBM, GIF\nAudio: MP3, WAV, M4A</string>
+
+    <!-- Contact us -->
+    <string name="contact_us_chooser">Send email with</string>
+    <string name="contact_us_no_app">No email app installed.</string>
 </resources>

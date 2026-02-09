@@ -1,142 +1,151 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:fillViewport="true"
-    android:background="?attr/colorSurface">
+    android:layout_height="match_parent">
+
+    <!-- Background: preserve aspect ratio -->
+    <ImageView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:src="@drawable/background"
+        android:scaleType="centerCrop"
+        android:contentDescription="@null" />
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true"
+        android:background="@android:color/transparent">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:padding="20dp"
+        android:paddingBottom="32dp"
         android:gravity="center_horizontal">
 
-        <!-- Header Section -->
-        <androidx.cardview.widget.CardView
+        <!-- Top overlay: title centered, then points + buttons + info on one line -->
+        <FrameLayout
+            android:id="@+id/conversionsBar"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="16dp"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="2dp"
-            app:cardBackgroundColor="?attr/colorPrimaryContainer">
+            android:background="@drawable/bg_overlay_glass"
+            android:padding="1dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="16dp">
+                android:padding="14dp">
 
-                <!-- Main Header Row -->
+                <!-- Row 1: Universal Converter (centered) + info icon right -->
                 <LinearLayout
+                    android:id="@+id/conversionsBarFirstRow"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginBottom="10dp">
+
+                    <TextView
+                        android:id="@+id/conversionsBarTitle"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Universal Media Converter"
+                        android:textSize="28sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/btn_glass_text"
+                        android:gravity="center" />
+
+                    <ImageView
+                        android:id="@+id/infoButton"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:padding="8dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:src="@drawable/ic_info"
+                        android:tint="@color/btn_glass_text"
+                        android:contentDescription="Show converter information"
+                        android:clickable="true"
+                        android:focusable="true" />
+                </LinearLayout>
+
+                <!-- Row 2: Points centered, Add points + Premium on the right (hidden when premium) -->
+                <LinearLayout
+                    android:id="@+id/conversionsBarSecondRow"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
                     android:gravity="center_vertical">
 
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="📚"
-                        android:textSize="32sp"
-                        android:layout_marginEnd="12dp" />
+                    <View
+                        android:layout_width="0dp"
+                        android:layout_height="0dp"
+                        android:layout_weight="1" />
 
                     <TextView
-                        android:layout_width="0dp"
+                        android:id="@+id/conversionsLeftText"
+                        android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="Universal Converter"
-                        android:textSize="24sp"
+                        android:textSize="18sp"
                         android:textStyle="bold"
-                        android:textColor="?attr/colorOnPrimaryContainer"
+                        android:textColor="@color/dark_blue_800"
                         android:gravity="center" />
 
                     <ImageView
-                        android:id="@+id/expandArrow"
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
-                        android:src="@android:drawable/arrow_down_float"
-                        app:tint="?attr/colorOnPrimaryContainer"
-                        android:alpha="0.8"
-                        android:clickable="true"
-                        android:focusable="true"
-                        android:background="?attr/selectableItemBackgroundBorderless"
-                        android:padding="4dp" />
-
-                </LinearLayout>
-
-                <!-- Expandable Info Section -->
-                <LinearLayout
-                    android:id="@+id/expandableInfo"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:visibility="gone"
-                    android:layout_marginTop="16dp">
+                        android:id="@+id/currencyIcon"
+                        android:layout_width="22dp"
+                        android:layout_height="22dp"
+                        android:src="@drawable/ic_currency_c"
+                        android:contentDescription="Conversion points"
+                        android:layout_marginStart="4dp"
+                        android:visibility="gone" />
 
                     <View
-                        android:layout_width="match_parent"
-                        android:layout_height="1dp"
-                        android:background="?attr/colorOnPrimaryContainer"
-                        android:alpha="0.2"
-                        android:layout_marginBottom="16dp" />
+                        android:layout_width="0dp"
+                        android:layout_height="0dp"
+                        android:layout_weight="1" />
 
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="🚀 Transform Any File Format!"
-                        android:textSize="18sp"
-                        android:textStyle="bold"
-                        android:textColor="?attr/colorOnPrimaryContainer"
-                        android:gravity="center"
-                        android:layout_marginBottom="12dp" />
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/watchVideosButton"
+                        style="@style/Widget.UniversalConverter.Button.Glass"
+                        android:layout_width="wrap_content"
+                        android:layout_height="40dp"
+                        android:layout_marginStart="8dp"
+                        android:layout_marginEnd="6dp"
+                        android:text="@string/button_get_more_points"
+                        android:textSize="13sp"
+                        app:icon="@drawable/ic_video"
+                        app:iconGravity="textStart"
+                        app:iconSize="18dp" />
 
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="Your all-in-one file conversion powerhouse.\nConvert any media files with ease!\n\nSupported formats:\n\nDocuments: PDF, EPUB, DOCX, TXT, RTF\nImages: JPG, JPEG, PNG, WEBP, BMP, TIFF\nVideo: MP4, AVI, MOV, MKV, WEBM\n\n"
-                        android:textSize="14sp"
-                        android:textColor="?attr/colorOnPrimaryContainer"
-                        android:alpha="0.9"
-                        android:gravity="center"
-                        android:lineSpacingExtra="4dp"
-                        android:layout_marginBottom="16dp" />
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:gravity="center">
-
-                        <ImageView
-                            android:id="@+id/collapseArrow"
-                            android:layout_width="20dp"
-                            android:layout_height="20dp"
-                            android:src="@android:drawable/arrow_up_float"
-                            app:tint="?attr/colorOnPrimaryContainer"
-                            android:alpha="0.8"
-                            android:clickable="true"
-                            android:focusable="true"
-                            android:background="?attr/selectableItemBackgroundBorderless"
-                            android:padding="4dp" />
-
-                    </LinearLayout>
-
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/unlockFullButton"
+                        style="@style/Widget.UniversalConverter.Button.Glass"
+                        android:layout_width="wrap_content"
+                        android:layout_height="40dp"
+                        android:text="@string/button_unlock_full"
+                        android:textSize="13sp"
+                        app:icon="@drawable/ic_crown"
+                        app:iconGravity="textStart"
+                        app:iconSize="18dp" />
                 </LinearLayout>
-
             </LinearLayout>
-        </androidx.cardview.widget.CardView>
+        </FrameLayout>
 
-        <!-- File Selection Section -->
-        <androidx.cardview.widget.CardView
+        <!-- Step 1: File & format – one overlay (same glass style) -->
+        <FrameLayout
             android:id="@+id/fileSelectionCard"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="20dp"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="2dp"
-            android:visibility="gone">
+            android:layout_marginBottom="16dp"
+            android:background="@drawable/bg_overlay_glass"
+            android:padding="1dp"
+            android:visibility="visible">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -147,46 +156,62 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Select File"
-                    android:textSize="20sp"
+                    android:text="1. Select file"
+                    android:textSize="18sp"
                     android:textStyle="bold"
-                    android:textColor="?attr/colorOnSurface"
-                    android:layout_marginBottom="16dp" />
+                    android:textColor="@color/btn_glass_text"
+                    android:layout_marginBottom="12dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/selectFileButton"
+                    style="@style/Widget.UniversalConverter.Button.Glass"
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    android:text="@string/button_choose_files"
+                    android:textSize="16sp"
+                    app:icon="@android:drawable/ic_menu_upload"
+                    app:iconGravity="textStart"
+                    android:layout_marginBottom="12dp" />
 
                 <TextView
                     android:id="@+id/selectedFileName"
-                    android:layout_width="wrap_content"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text=""
-                    android:textSize="16sp"
-                    android:textColor="?attr/colorPrimary"
-                    android:layout_marginBottom="16dp"
+                    android:textSize="15sp"
+                    android:textColor="@color/btn_glass_text"
+                    android:layout_marginBottom="8dp"
                     android:visibility="gone"
                     android:background="@drawable/file_name_background"
                     android:padding="12dp"
                     android:gravity="center" />
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/selectFileButton"
+                <ScrollView
+                    android:id="@+id/selectedFilesListScroll"
                     android:layout_width="match_parent"
-                    android:layout_height="56dp"
-                    android:text="Choose File"
-                    android:textSize="16sp"
-                    app:icon="@android:drawable/ic_menu_upload"
-                    app:iconGravity="textStart"
-                    app:cornerRadius="12dp" />
+                    android:layout_height="wrap_content"
+                    android:visibility="gone"
+                    android:maxHeight="160dp"
+                    android:fillViewport="false"
+                    android:layout_marginBottom="12dp">
 
+                    <LinearLayout
+                        android:id="@+id/selectedFilesList"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical" />
+                </ScrollView>
             </LinearLayout>
-        </androidx.cardview.widget.CardView>
+        </FrameLayout>
 
-        <!-- Image Scaling Section -->
-        <androidx.cardview.widget.CardView
-            android:id="@+id/imageScalingCard"
+        <!-- Step 2: Convert to – overlay, only when file(s) selected -->
+        <FrameLayout
+            android:id="@+id/convertToCard"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="20dp"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="2dp"
+            android:layout_marginBottom="16dp"
+            android:background="@drawable/bg_overlay_glass"
+            android:padding="1dp"
             android:visibility="gone">
 
             <LinearLayout
@@ -198,10 +223,51 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Image Scaling"
-                    android:textSize="20sp"
+                    android:text="2. Convert to"
+                    android:textSize="18sp"
                     android:textStyle="bold"
-                    android:textColor="?attr/colorOnSurface"
+                    android:textColor="@color/btn_glass_text"
+                    android:layout_marginBottom="12dp" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu">
+
+                    <AutoCompleteTextView
+                        android:id="@+id/toFormatSpinner"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="none"
+                        android:hint="Select target format"
+                        android:textSize="16sp" />
+                </com.google.android.material.textfield.TextInputLayout>
+            </LinearLayout>
+        </FrameLayout>
+
+        <!-- Image scaling (when image selected) – same overlay style -->
+        <FrameLayout
+            android:id="@+id/imageScalingCard"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:background="@drawable/bg_overlay_glass"
+            android:padding="1dp"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="24dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Image size (optional)"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/btn_glass_text"
                     android:layout_marginBottom="16dp" />
 
                 <TextView
@@ -210,7 +276,7 @@
                     android:layout_height="wrap_content"
                     android:text="Original size: 1920 x 1080"
                     android:textSize="14sp"
-                    android:textColor="?attr/colorOnSurface"
+                    android:textColor="@color/btn_glass_text"
                     android:layout_marginBottom="16dp"
                     android:background="@drawable/format_background"
                     android:padding="8dp"
@@ -221,7 +287,7 @@
                     android:layout_height="wrap_content"
                     android:text="Set new dimensions (aspect ratio will be maintained):"
                     android:textSize="14sp"
-                    android:textColor="?attr/colorOnSurface"
+                    android:textColor="@color/btn_glass_text"
                     android:layout_marginBottom="12dp" />
 
                 <LinearLayout
@@ -277,7 +343,7 @@
                         android:layout_height="wrap_content"
                         android:text="px"
                         android:textSize="16sp"
-                        android:textColor="?attr/colorOnSurface"
+                        android:textColor="@color/btn_glass_text"
                         android:layout_marginStart="8dp" />
 
                 </LinearLayout>
@@ -288,64 +354,23 @@
                     android:layout_height="wrap_content"
                     android:text="New size: 1920 x 1080"
                     android:textSize="14sp"
-                    android:textColor="?attr/colorPrimary"
+                    android:textColor="@color/btn_glass_text"
                     android:layout_marginTop="12dp"
                     android:background="@drawable/format_background"
                     android:padding="8dp"
                     android:gravity="center" />
 
             </LinearLayout>
-        </androidx.cardview.widget.CardView>
+        </FrameLayout>
 
-        <!-- Format Selection Section -->
-        <androidx.cardview.widget.CardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="20dp"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="2dp">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="24dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Select Conversion Format"
-                    android:textSize="20sp"
-                    android:textStyle="bold"
-                    android:textColor="?attr/colorOnSurface"
-                    android:layout_marginBottom="16dp" />
-
-                <com.google.android.material.textfield.TextInputLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu">
-
-                    <AutoCompleteTextView
-                        android:id="@+id/toFormatSpinner"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:inputType="none"
-                        android:hint="Select target format"
-                        android:textSize="16sp" />
-
-                </com.google.android.material.textfield.TextInputLayout>
-
-            </LinearLayout>
-        </androidx.cardview.widget.CardView>
-
-        <!-- Conversion Section -->
-        <androidx.cardview.widget.CardView
+        <!-- Step 3: Convert – same overlay style -->
+        <FrameLayout
             android:id="@+id/conversionCard"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="20dp"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="2dp"
+            android:layout_marginBottom="16dp"
+            android:background="@drawable/bg_overlay_glass"
+            android:padding="1dp"
             android:visibility="gone">
 
             <LinearLayout
@@ -355,13 +380,53 @@
                 android:padding="24dp">
 
                 <TextView
+                    android:id="@+id/conversionCardTitle"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Convert File"
-                    android:textSize="20sp"
+                    android:text="3. Convert"
+                    android:textSize="18sp"
                     android:textStyle="bold"
-                    android:textColor="?attr/colorOnSurface"
+                    android:textColor="@color/btn_glass_text"
                     android:layout_marginBottom="16dp" />
+
+                <LinearLayout
+                    android:id="@+id/outputOptionContainer"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:visibility="gone"
+                    android:layout_marginBottom="12dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/label_output_as"
+                        android:textSize="14sp"
+                        android:textColor="@color/btn_glass_text"
+                        android:layout_marginBottom="6dp" />
+
+                    <RadioGroup
+                        android:id="@+id/outputOptionGroup"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+
+                        <RadioButton
+                            android:id="@+id/outputOptionZip"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/option_output_zip"
+                            android:textColor="@color/btn_glass_text"
+                            android:layout_marginEnd="20dp" />
+
+                        <RadioButton
+                            android:id="@+id/outputOptionSeparate"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/option_output_separate"
+                            android:textColor="@color/btn_glass_text" />
+                    </RadioGroup>
+                </LinearLayout>
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -371,6 +436,7 @@
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/convertButton"
+                        style="@style/Widget.UniversalConverter.Button.Glass"
                         android:layout_width="0dp"
                         android:layout_height="56dp"
                         android:layout_weight="1"
@@ -378,11 +444,11 @@
                         android:text="Convert"
                         android:textSize="16sp"
                         app:icon="@android:drawable/ic_menu_send"
-                        app:iconGravity="textStart"
-                        app:cornerRadius="12dp" />
+                        app:iconGravity="textStart" />
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/resetButton"
+                        style="@style/Widget.UniversalConverter.Button.Glass"
                         android:layout_width="0dp"
                         android:layout_height="56dp"
                         android:layout_weight="1"
@@ -390,22 +456,20 @@
                         android:text="Reset"
                         android:textSize="16sp"
                         app:icon="@android:drawable/ic_menu_revert"
-                        app:iconGravity="textStart"
-                        app:cornerRadius="12dp"
-                        style="@style/Widget.Material3.Button.OutlinedButton" />
+                        app:iconGravity="textStart" />
 
                 </LinearLayout>
             </LinearLayout>
-        </androidx.cardview.widget.CardView>
+        </FrameLayout>
 
-        <!-- Progress Section -->
-        <androidx.cardview.widget.CardView
+        <!-- Progress – same overlay style -->
+        <FrameLayout
             android:id="@+id/progressCard"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="20dp"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="2dp"
+            android:layout_marginBottom="16dp"
+            android:background="@drawable/bg_overlay_glass"
+            android:padding="1dp"
             android:visibility="gone">
 
             <LinearLayout
@@ -421,7 +485,7 @@
                     android:text="Converting..."
                     android:textSize="20sp"
                     android:textStyle="bold"
-                    android:textColor="?attr/colorOnSurface"
+                    android:textColor="@color/btn_glass_text"
                     android:layout_marginBottom="20dp" />
 
                 <ProgressBar
@@ -430,7 +494,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="8dp"
                     android:layout_marginBottom="16dp"
-                    android:progressTint="?attr/colorPrimary" />
+                    android:progressTint="@color/btn_filled_dark_blue" />
 
                 <TextView
                     android:id="@+id/progressText"
@@ -439,7 +503,7 @@
                     android:text="0%"
                     android:textSize="18sp"
                     android:textStyle="bold"
-                    android:textColor="?attr/colorPrimary"
+                    android:textColor="@color/btn_glass_text"
                     android:layout_marginBottom="8dp" />
 
                 <TextView
@@ -448,33 +512,32 @@
                     android:layout_height="wrap_content"
                     android:text="Preparing file..."
                     android:textSize="14sp"
-                    android:textColor="?android:attr/textColorSecondary"
+                    android:textColor="@color/btn_glass_text"
+                    android:alpha="0.8"
                     android:layout_marginBottom="20dp" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/cancelButton"
+                    style="@style/Widget.UniversalConverter.Button.Glass"
                     android:layout_width="wrap_content"
                     android:layout_height="48dp"
                     android:text="Cancel"
                     android:textSize="16sp"
                     app:icon="@android:drawable/ic_menu_close_clear_cancel"
-                    app:iconGravity="textStart"
-                    app:cornerRadius="12dp"
-                    style="@style/Widget.Material3.Button.OutlinedButton" />
+                    app:iconGravity="textStart" />
 
             </LinearLayout>
-        </androidx.cardview.widget.CardView>
+        </FrameLayout>
 
-        <!-- Result Section -->
-        <androidx.cardview.widget.CardView
+        <!-- Result – same overlay style -->
+        <FrameLayout
             android:id="@+id/resultCard"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="20dp"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="2dp"
-            android:visibility="gone"
-            app:cardBackgroundColor="?attr/colorTertiaryContainer">
+            android:layout_marginBottom="16dp"
+            android:background="@drawable/bg_overlay_glass"
+            android:padding="1dp"
+            android:visibility="gone">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -486,10 +549,10 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="✅ Conversion Complete!"
+                    android:text="Conversion Complete!"
                     android:textSize="20sp"
                     android:textStyle="bold"
-                    android:textColor="?attr/colorOnTertiaryContainer"
+                    android:textColor="@color/btn_glass_text"
                     android:layout_marginBottom="16dp" />
 
                 <TextView
@@ -498,7 +561,7 @@
                     android:layout_height="wrap_content"
                     android:text=""
                     android:textSize="16sp"
-                    android:textColor="?attr/colorOnTertiaryContainer"
+                    android:textColor="@color/btn_glass_text"
                     android:layout_marginBottom="8dp"
                     android:gravity="center"
                     android:background="@drawable/file_name_background"
@@ -510,7 +573,7 @@
                     android:layout_height="wrap_content"
                     android:text=""
                     android:textSize="14sp"
-                    android:textColor="?attr/colorOnTertiaryContainer"
+                    android:textColor="@color/btn_glass_text"
                     android:alpha="0.8"
                     android:layout_marginBottom="20dp"
                     android:gravity="center" />
@@ -524,6 +587,7 @@
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/viewFileButton"
+                        style="@style/Widget.UniversalConverter.Button.Glass"
                         android:layout_width="0dp"
                         android:layout_height="56dp"
                         android:layout_weight="1"
@@ -531,11 +595,11 @@
                         android:text="View File"
                         android:textSize="16sp"
                         app:icon="@android:drawable/ic_menu_view"
-                        app:iconGravity="textStart"
-                        app:cornerRadius="12dp" />
+                        app:iconGravity="textStart" />
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/shareFileButton"
+                        style="@style/Widget.UniversalConverter.Button.Glass"
                         android:layout_width="0dp"
                         android:layout_height="56dp"
                         android:layout_weight="1"
@@ -543,36 +607,72 @@
                         android:text="Share File"
                         android:textSize="16sp"
                         app:icon="@android:drawable/ic_menu_share"
-                        app:iconGravity="textStart"
-                        app:cornerRadius="12dp"
-                        style="@style/Widget.Material3.Button.OutlinedButton" />
+                        app:iconGravity="textStart" />
 
                 </LinearLayout>
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/saveToDownloadsButton"
+                    style="@style/Widget.UniversalConverter.Button.Glass"
                     android:layout_width="match_parent"
                     android:layout_height="56dp"
                     android:text="Save to Downloads"
                     android:textSize="16sp"
                     app:icon="@android:drawable/ic_menu_save"
-                    app:iconGravity="textStart"
-                    app:cornerRadius="12dp"
-                    style="@style/Widget.Material3.Button.OutlinedButton" />
+                    app:iconGravity="textStart" />
 
             </LinearLayout>
-        </androidx.cardview.widget.CardView>
+        </FrameLayout>
 
-        <!-- Error Section -->
-        <androidx.cardview.widget.CardView
+        <!-- Result (multiple files) – list + View / Share / Save -->
+        <FrameLayout
+            android:id="@+id/resultCardMulti"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:background="@drawable/bg_overlay_glass"
+            android:padding="1dp"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="24dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Conversion Complete!"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/btn_glass_text"
+                    android:layout_marginBottom="12dp" />
+
+                <ScrollView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:maxHeight="320dp"
+                    android:fillViewport="false">
+
+                    <LinearLayout
+                        android:id="@+id/convertedFilesList"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical" />
+                </ScrollView>
+            </LinearLayout>
+        </FrameLayout>
+
+        <!-- Error – same overlay style -->
+        <FrameLayout
             android:id="@+id/errorCard"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="20dp"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="2dp"
-            android:visibility="gone"
-            app:cardBackgroundColor="?attr/colorErrorContainer">
+            android:layout_marginBottom="16dp"
+            android:background="@drawable/bg_overlay_glass"
+            android:padding="1dp"
+            android:visibility="gone">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -587,7 +687,7 @@
                     android:text="❌ Error"
                     android:textSize="20sp"
                     android:textStyle="bold"
-                    android:textColor="?attr/colorOnErrorContainer"
+                    android:textColor="@color/main_on_error_container"
                     android:layout_marginBottom="16dp" />
 
                 <TextView
@@ -596,12 +696,28 @@
                     android:layout_height="wrap_content"
                     android:text=""
                     android:textSize="16sp"
-                    android:textColor="?attr/colorOnErrorContainer"
+                    android:textColor="@color/main_on_error_container"
                     android:gravity="center"
                     android:alpha="0.9" />
 
             </LinearLayout>
-        </androidx.cardview.widget.CardView>
+        </FrameLayout>
+
+        <!-- Contact us at bottom -->
+        <TextView
+            android:id="@+id/contactUsText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:layout_marginBottom="16dp"
+            android:padding="4dp"
+            android:text="Contact us"
+            android:textSize="14sp"
+            android:textColor="@color/btn_glass_text"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="?attr/selectableItemBackgroundBorderless" />
 
     </LinearLayout>
-</ScrollView> 
+    </ScrollView>
+</FrameLayout> 
