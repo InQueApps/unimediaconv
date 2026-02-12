@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "520510000054",
+    "project_id": "unimediaconv",
+    "storage_bucket": "unimediaconv.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:520510000054:android:0245b90a5759491de70f17",
+        "android_client_info": {
+          "package_name": "ab.inque.visiontechai"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB3zzzz3H4H5y3mbsaaUesc587bzOARKBE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

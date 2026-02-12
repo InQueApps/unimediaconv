@@ -11,8 +11,8 @@ android {
         applicationId = "ab.inque.converter"
         minSdk = 27
         targetSdk = 35
-        versionCode = 5
-        versionName = "0.1"
+        versionCode = 13
+        versionName = "0.13"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -24,6 +24,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
     
@@ -35,6 +36,7 @@ android {
         jvmTarget = "11"
     }
     buildFeatures {
+        buildConfig = true
         viewBinding = true
     }
     lint {
@@ -60,6 +62,8 @@ dependencies {
     implementation(libs.androidx.activity.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.material)
+    implementation(libs.billing.client.ktx)
+    implementation(libs.play.services.ads)
     // File handling and storage
     implementation("androidx.documentfile:documentfile:1.0.1")
     // PDF operations

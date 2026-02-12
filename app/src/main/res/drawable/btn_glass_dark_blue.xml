@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="#201B3A5C">
+    <item>
+        <layer-list>
+            <!-- Slight transparent dark blue fill (glassy) -->
+            <item>
+                <shape android:shape="rectangle">
+                    <solid android:color="#141B3A5C" />
+                    <corners android:radius="14dp" />
+                </shape>
+            </item>
+            <!-- Glassy dark blue edge -->
+            <item>
+                <shape android:shape="rectangle">
+                    <stroke
+                        android:width="1.5dp"
+                        android:color="@color/btn_glass_stroke" />
+                    <corners android:radius="14dp" />
+                    <solid android:color="@android:color/transparent" />
+                </shape>
+            </item>
+        </layer-list>
+    </item>
+</ripple>

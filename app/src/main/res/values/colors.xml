@@ -1,10 +1,78 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="purple_200">#FFBB86FC</color>
-    <color name="purple_500">#FF6200EE</color>
-    <color name="purple_700">#FF3700B3</color>
-    <color name="teal_200">#FF03DAC5</color>
-    <color name="teal_700">#FF018786</color>
-    <color name="black">#FF000000</color>
-    <color name="white">#FFFFFFFF</color>
+    <!-- Dark blue palette (primary) -->
+    <color name="dark_blue_900">#0D1B2A</color>
+    <color name="dark_blue_800">#1B3A5C</color>
+    <color name="dark_blue_700">#274C77</color>
+    <color name="dark_blue_600">#3D5A80</color>
+    <color name="dark_blue_500">#5C7A9E</color>
+
+    <!-- Button colors -->
+    <color name="btn_filled_dark_blue">#1B3A5C</color>
+    <color name="btn_filled_dark_purple">#4A1942</color>
+    <color name="btn_filled_on">#FFFFFFFF</color>
+    <color name="btn_glass_stroke">#801B3A5C</color>
+    <color name="btn_glass_text">#1B3A5C</color>
+    <color name="btn_glass_purple_text">#4A1942</color>
+
+    <!-- Blue palette (legacy/accents) -->
+    <color name="blue_50">#E8EEF5</color>
+    <color name="blue_100">#D1DCE8</color>
+    <color name="blue_200">#A7B8D4</color>
+    <color name="blue_300">#7A94B8</color>
+    <color name="blue_400">#5C7A9E</color>
+    <color name="blue_500">#4A6385</color>
+    <color name="blue_600">#3D5270</color>
+    <color name="blue_700">#1B3A5C</color>
+    <color name="blue_800">#0D2847</color>
+    <color name="blue_900">#0D1B2A</color>
+
+    <color name="sky_50">#F4F7FB</color>
+    <color name="sky_100">#E3EAF3</color>
+    <color name="sky_200">#C7D4E7</color>
+    <color name="sky_300">#9BB5D4</color>
+    <color name="sky_400">#7A9BC4</color>
+    <color name="sky_500">#5C7FA8</color>
+
+    <!-- Semantic tokens (single theme) -->
+    <color name="main_background">#FFE8EEF5</color>
+    <color name="main_on_background">@color/blue_900</color>
+
+    <color name="main_surface">#FFE8EEF5</color>
+    <color name="main_on_surface">@color/blue_900</color>
+    <color name="main_surface_variant">@color/sky_200</color>
+    <color name="main_on_surface_variant">@color/blue_700</color>
+
+    <color name="main_primary">@color/dark_blue_800</color>
+    <color name="main_on_primary">#FFFFFFFF</color>
+    <color name="main_primary_container">#E6FFFFFF</color>
+    <color name="main_on_primary_container">@color/blue_800</color>
+
+    <color name="main_secondary">@color/dark_blue_600</color>
+    <color name="main_on_secondary">#FFFFFFFF</color>
+    <color name="main_secondary_container">@color/sky_100</color>
+    <color name="main_on_secondary_container">@color/blue_800</color>
+
+    <color name="main_tertiary">#3D5A80</color>
+    <color name="main_on_tertiary">#FFFFFFFF</color>
+    <color name="main_tertiary_container">#E6FFFFFF</color>
+    <color name="main_on_tertiary_container">#0D2847</color>
+
+    <color name="main_error">#B3261E</color>
+    <color name="main_on_error">#FFFFFFFF</color>
+    <color name="main_error_container">#F9DEDC</color>
+    <color name="main_on_error_container">#410E0B</color>
+
+    <color name="main_outline">#801B3A5C</color>
+
+    <color name="main_button">@color/main_primary</color>
+    <color name="main_button_text">@color/main_on_primary</color>
+    <color name="main_button_ripple">#4D1B3A5C</color>
+
+    <color name="main_card">#FFFFFFFF</color>
+    <color name="main_chip">@color/main_surface_variant</color>
+    <color name="main_status_text">@color/blue_800</color>
+
+    <color name="main_status_bar">@color/dark_blue_800</color>
+    <color name="main_navigation_bar">@color/dark_blue_800</color>
 </resources>

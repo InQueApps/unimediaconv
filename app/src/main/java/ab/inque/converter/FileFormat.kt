@@ -18,6 +18,7 @@ enum class FileFormat(
     JPEG("JPEG Image", "jpeg", "image/jpeg", FormatCategory.IMAGE),
     PNG("PNG Image", "png", "image/png", FormatCategory.IMAGE),
     WEBP("WebP Image", "webp", "image/webp", FormatCategory.IMAGE),
+    HEIC("HEIC Image", "heic", "image/heic", FormatCategory.IMAGE),
     BMP("Bitmap Image", "bmp", "image/bmp", FormatCategory.IMAGE),
     TIFF("TIFF Image", "tiff", "image/tiff", FormatCategory.IMAGE),
     
@@ -26,10 +27,18 @@ enum class FileFormat(
     AVI("AVI Video", "avi", "video/x-msvideo", FormatCategory.VIDEO),
     MOV("MOV Video", "mov", "video/quicktime", FormatCategory.VIDEO),
     MKV("MKV Video", "mkv", "video/x-matroska", FormatCategory.VIDEO),
-    WEBM("WebM Video", "webm", "video/webm", FormatCategory.VIDEO);
+    WEBM("WebM Video", "webm", "video/webm", FormatCategory.VIDEO),
+    GIF("GIF Animation", "gif", "image/gif", FormatCategory.VIDEO),
+    
+    // Audio Formats
+    MP3("MP3 Audio", "mp3", "audio/mpeg", FormatCategory.AUDIO),
+    WAV("WAV Audio", "wav", "audio/wav", FormatCategory.AUDIO),
+    M4A("M4A Audio", "m4a", "audio/mp4", FormatCategory.AUDIO);
 
     companion object {
         fun fromExtension(extension: String): FileFormat? {
+            val ext = extension.lowercase()
+            if (ext == "heif") return HEIC // iPhone sometimes uses .heif
             return values().find { it.extension.equals(extension, ignoreCase = true) }
         }
         
@@ -42,11 +51,25 @@ enum class FileFormat(
         }
         
         fun getSupportedConversions(fromFormat: FileFormat): List<FileFormat> {
-            return when (fromFormat.category) {
+            val sameCategory = when (fromFormat.category) {
                 FormatCategory.DOCUMENT -> getFormatsByCategory(FormatCategory.DOCUMENT)
                 FormatCategory.IMAGE -> getFormatsByCategory(FormatCategory.IMAGE)
                 FormatCategory.VIDEO -> getFormatsByCategory(FormatCategory.VIDEO)
+                FormatCategory.AUDIO -> getFormatsByCategory(FormatCategory.AUDIO)
             }.filter { it != fromFormat }
+            val crossCategory = when {
+                // Images → PDF
+                fromFormat.category == FormatCategory.IMAGE ->
+                    listOf(FileFormat.PDF)
+                // PDF → JPG/PNG
+                fromFormat == FileFormat.PDF ->
+                    listOf(FileFormat.JPG, FileFormat.PNG)
+                // Video → extract audio (MP3, WAV)
+                fromFormat.category == FormatCategory.VIDEO ->
+                    listOf(FileFormat.MP3, FileFormat.WAV)
+                else -> emptyList()
+            }
+            return (sameCategory + crossCategory).distinct()
         }
     }
 }
@@ -54,5 +77,6 @@ enum class FileFormat(
 enum class FormatCategory {
     DOCUMENT,
     IMAGE,
-    VIDEO
+    VIDEO,
+    AUDIO
 } 
