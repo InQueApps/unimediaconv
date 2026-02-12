@@ -18,7 +18,7 @@ import com.android.billingclient.api.QueryPurchasesParams
 
 class PurchaseActivity : AppCompatActivity() {
     companion object {
-        private const val PREMIUM_PRODUCT_ID = "premiumupgrade"
+        private const val PREMIUM_PRODUCT_ID = "premium_upgrade"
         private const val TAG = "PurchaseActivity"
     }
 
