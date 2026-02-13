@@ -1,10 +1,7 @@
 package ab.inque.converter
 
-import android.Manifest
 import android.content.ActivityNotFoundException
 import android.content.Intent
-import android.os.Build
-import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.net.Uri
@@ -68,16 +65,6 @@ class MainActivity : AppCompatActivity() {
     private var originalImageWidth: Int = 0
     private var originalImageHeight: Int = 0
     private var isWidthSelected: Boolean = true
-
-    private val permissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        if (isGranted) {
-            openFilePicker()
-        } else {
-            Toast.makeText(this, getString(R.string.error_storage_permission_required), Toast.LENGTH_SHORT).show()
-        }
-    }
 
     private val filePickerMultipleLauncher = registerForActivityResult(
         ActivityResultContracts.OpenMultipleDocuments()
@@ -173,11 +160,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupClickListeners() {
         binding.selectFileButton.setOnClickListener {
-            if (checkStoragePermission()) {
-                openFilePicker()
-            } else {
-                permissionLauncher.launch(Manifest.permission.READ_EXTERNAL_STORAGE)
-            }
+            openFilePicker()
         }
         
         binding.infoButton.setOnClickListener {
@@ -471,14 +454,6 @@ class MainActivity : AppCompatActivity() {
         binding.errorCard.visibility = View.GONE
         binding.toFormatSpinner.setText("", false)
         viewModel.resetState()
-    }
-
-    private fun checkStoragePermission(): Boolean {
-        // API 33+: GetContent picker does not require storage permission
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            return true
-        }
-        return checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
     }
 
     private fun setupFormatSpinners() {
