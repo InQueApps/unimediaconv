@@ -1,6 +1,8 @@
 <resources>
     <string name="app_name">Universal Converter</string>
     <string name="app_description">Convert between EPUB and PDF formats</string>
+    <string name="landing_title">Universal Media\nConverter</string>
+    <string name="landing_description">Convert documents, images, video, and audio — all on your device. Trim, speed up, flip, and export in any format. Private and offline.</string>
     <string name="button_start_converting">Start Converting</string>
     <string name="button_get_started">Get Started</string>
     <string name="select_file">Select File</string>
@@ -21,9 +23,13 @@
     <string name="status_converting_file_n_of_m">Converting file %1$d of %2$d…</string>
     <string name="label_convert_cost">%1$d 💎</string>
     <string name="title_convert_with_cost">3. Convert (%1$d 💎)</string>
+    <string name="title_convert_section">3. Convert ∞</string>
     <string name="label_output_as">Output as</string>
     <string name="option_output_zip">Zip file</string>
     <string name="option_output_separate">Separate files</string>
+
+    <!-- Actions -->
+    <string name="button_start_over">Start Over</string>
 
     <!-- Errors and hints -->
     <string name="error_storage_permission_required">Storage permission is required</string>
@@ -57,6 +63,30 @@
     <string name="error_purchase_no_offer">No subscription offer found for this product.</string>
     <string name="purchase_status_connecting">Connecting to Google Play...</string>
 
+    <!-- Media tools -->
+    <string name="label_media_tools">Media Tools (optional)</string>
+    <string name="label_trim">Trim / Extract clip</string>
+    <string name="hint_start_time">Start (mm:ss)</string>
+    <string name="hint_end_time">End (mm:ss)</string>
+    <string name="label_change_speed">Change speed</string>
+    <string name="speed_025">0.25×</string>
+    <string name="speed_05">0.5×</string>
+    <string name="speed_075">0.75×</string>
+    <string name="speed_1">1×</string>
+    <string name="speed_15">1.5×</string>
+    <string name="speed_2">2×</string>
+    <string name="speed_3">3×</string>
+    <string name="speed_4">4×</string>
+    <string name="label_flip">Flip / Mirror</string>
+    <string name="label_flip_horizontal">Horizontal (↔)</string>
+    <string name="label_flip_vertical">Vertical (↕)</string>
+
+    <!-- Quality selector -->
+    <string name="label_quality">Quality</string>
+    <string name="quality_low">Low</string>
+    <string name="quality_medium">Medium</string>
+    <string name="quality_high">High</string>
+
     <!-- Result -->
     <string name="label_ready_to_save">Ready to save: %1$s</string>
     <string name="label_file_size">Size: %1$s</string>
@@ -82,9 +112,9 @@
     <string name="info_dialog_section_images">Images</string>
     <string name="info_dialog_images">• JPEG ↔ PNG\n• HEIC → JPEG/PNG (iPhone photos; .heic and .heif)\n• PNG → JPG (smaller size)\n• WEBP → JPG or PNG (from websites)\n• BMP, TIFF → PNG/JPEG\n• Any image → single-page PDF</string>
     <string name="info_dialog_section_video">Video</string>
-    <string name="info_dialog_video">• MOV → MP4 (Apple → universal)\n• MP4 → MOV\n• MOV/MP4 ↔ WEBM, AVI, MKV (re-encode)\n• Video → WAV (extract audio track)</string>
+    <string name="info_dialog_video">• MOV → MP4 (Apple → universal)\n• MP4 → MOV\n• MOV/MP4 ↔ WEBM, AVI, MKV (re-encode)\n• Video → M4A (fast lossless audio extract)\n• Video → WAV (decoded audio)</string>
     <string name="info_dialog_section_audio">Audio</string>
-    <string name="info_dialog_audio">• MP3 ↔ WAV\n• M4A → WAV (Apple audio)\n• MP4/MOV → WAV (extract audio from video)\n• MP3 encoding from video is not supported; use WAV.</string>
+    <string name="info_dialog_audio">• WAV, M4A, MP3 → WAV (full quality decode)\n• WAV or MP3 → M4A (AAC encode; compact)\n• Video → WAV (extract and decode audio)\n• Video → M4A (fast lossless audio extract)</string>
     <string name="info_dialog_section_documents">Documents</string>
     <string name="info_dialog_documents">• PDF ↔ EPUB, DOCX, RTF, TXT\n• Images → PDF (one image = one page)\n• PDF → images: each page exported as JPG or PNG (delivered as a zip)</string>
     <string name="info_dialog_formats_heading">Supported file types</string>

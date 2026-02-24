@@ -56,6 +56,7 @@ class MainActivity : AppCompatActivity() {
     private var fileToSaveOnResult: File? = null
     private var conversionDecrementedForCurrentSuccess = false
     private var conversionCostForCurrentSuccess = 0
+    private var mediaDurationMs: Long = 0L
     private var rewardedAd: RewardedAd? = null
     private var isLoadingRewardedAd = false
     private var rewardedInThisShow = false
@@ -85,8 +86,31 @@ class MainActivity : AppCompatActivity() {
             } else {
                 binding.imageScalingCard.visibility = View.GONE
             }
+            // Show quality picker for image and video
+            val showQuality = firstFormat.category == FormatCategory.IMAGE ||
+                    firstFormat.category == FormatCategory.VIDEO
+            binding.qualityContainer.visibility = if (showQuality) View.VISIBLE else View.GONE
+            if (!showQuality) binding.qualityMedium.isChecked = true
+
+            // Show media tools for video, audio, and images
+            val isMedia = firstFormat.category == FormatCategory.VIDEO ||
+                    firstFormat.category == FormatCategory.AUDIO ||
+                    firstFormat.category == FormatCategory.IMAGE
+            binding.mediaToolsCard.visibility = if (isMedia) View.VISIBLE else View.GONE
+            if (isMedia) {
+                val isAV = firstFormat.category == FormatCategory.VIDEO || firstFormat.category == FormatCategory.AUDIO
+                binding.trimSection.visibility = if (isAV) View.VISIBLE else View.GONE
+                binding.speedSection.visibility = if (isAV) View.VISIBLE else View.GONE
+                binding.flipSection.visibility = View.VISIBLE
+
+                if (isAV && items.size == 1) {
+                    configureTrimSlider(items.first().uri)
+                }
+            }
+
             binding.conversionCard.visibility = View.VISIBLE
             populateToFormats(firstFormat)
+            scrollToView(binding.convertToCard)
         } else {
             val ext = items.first().fileName.substringAfterLast('.', "")
             Toast.makeText(this, getString(R.string.error_unsupported_format, ext), Toast.LENGTH_SHORT).show()
@@ -148,6 +172,10 @@ class MainActivity : AppCompatActivity() {
 
     /** Sets the conversion card title to "3. Convert (X 💎)" with current cost; emoji at 70% size. */
     private fun updateConversionCardTitle(cost: Int) {
+        if (ConversionPrefs.isUnlocked(this)) {
+            binding.conversionCardTitle.text = getString(R.string.title_convert_section)
+            return
+        }
         val text = getString(R.string.title_convert_with_cost, cost)
         val span = SpannableString(text)
         val emoji = "💎"
@@ -181,10 +209,13 @@ class MainActivity : AppCompatActivity() {
             val selectedToFormat = binding.toFormatSpinner.text.toString()
             val targetFormat = FileFormat.values().find { it.displayName == selectedToFormat }
             if (targetFormat != null) {
+                conversionDecrementedForCurrentSuccess = false
                 conversionCostForCurrentSuccess = cost
                 viewModel.setTargetFormat(targetFormat)
                 val scale = getImageScale()
-                viewModel.convertFile(this, scale)
+                val quality = getSelectedQuality()
+                val toolOptions = getMediaToolOptions()
+                viewModel.convertFile(this, scale, quality, toolOptions)
             } else {
                 Toast.makeText(this, getString(R.string.error_select_target_format), Toast.LENGTH_SHORT).show()
             }
@@ -218,6 +249,25 @@ class MainActivity : AppCompatActivity() {
 
         binding.resetButton.setOnClickListener {
             resetUI()
+        }
+
+        binding.errorStartOverButton.setOnClickListener {
+            resetUI()
+        }
+
+        // Media tools toggle listeners
+        binding.trimCheckBox.setOnCheckedChangeListener { _, checked ->
+            binding.trimInputs.visibility = if (checked) View.VISIBLE else View.GONE
+        }
+        binding.trimRangeSlider.addOnChangeListener { slider, _, _ ->
+            val values = slider.values
+            if (values.size >= 2) {
+                binding.trimStartLabel.text = formatMs(values[0].toLong() * 1000L)
+                binding.trimEndLabel.text = formatMs(values[1].toLong() * 1000L)
+            }
+        }
+        binding.speedCheckBox.setOnCheckedChangeListener { _, checked ->
+            binding.speedOptions.visibility = if (checked) View.VISIBLE else View.GONE
         }
 
         binding.cancelButton.setOnClickListener {
@@ -409,6 +459,7 @@ class MainActivity : AppCompatActivity() {
             binding.resultCard.visibility = View.GONE
             binding.resultCardMulti.visibility = View.VISIBLE
             populateConvertedFilesList(state.convertedFiles)
+            scrollToView(binding.resultCardMulti)
         } else if (state.success && state.convertedFile != null) {
             if (!conversionDecrementedForCurrentSuccess && !ConversionPrefs.isUnlocked(this) && conversionCostForCurrentSuccess > 0) {
                 ConversionPrefs.spendPoints(this, conversionCostForCurrentSuccess)
@@ -419,6 +470,7 @@ class MainActivity : AppCompatActivity() {
             binding.resultCardMulti.visibility = View.GONE
             binding.convertedFileName.text = getString(R.string.label_ready_to_save, state.convertedFile!!.name)
             binding.fileSize.text = getString(R.string.label_file_size, formatFileSize(state.convertedFile!!.length()))
+            scrollToView(binding.resultCard)
         } else {
             conversionDecrementedForCurrentSuccess = false
             binding.resultCard.visibility = View.GONE
@@ -429,6 +481,7 @@ class MainActivity : AppCompatActivity() {
         if (state.error != null) {
             binding.errorCard.visibility = View.VISIBLE
             binding.errorText.text = state.error
+            scrollToView(binding.errorCard)
         } else {
             binding.errorCard.visibility = View.GONE
         }
@@ -447,12 +500,27 @@ class MainActivity : AppCompatActivity() {
         binding.convertToCard.visibility = View.GONE
         binding.conversionCard.visibility = View.GONE
         binding.imageScalingCard.visibility = View.GONE
+        binding.qualityContainer.visibility = View.GONE
+        binding.qualityMedium.isChecked = true
+        binding.mediaToolsCard.visibility = View.GONE
+        binding.trimCheckBox.isChecked = false
+        mediaDurationMs = 0L
+        binding.trimRangeSlider.valueTo = 100f
+        binding.trimRangeSlider.values = listOf(0f, 100f)
+        binding.trimStartLabel.text = "0:00"
+        binding.trimEndLabel.text = "0:00"
+        binding.speedCheckBox.isChecked = false
+        binding.speed1.isChecked = true
+        binding.flipHorizontalCheckBox.isChecked = false
+        binding.flipVerticalCheckBox.isChecked = false
         binding.progressCard.visibility = View.GONE
         binding.resultCard.visibility = View.GONE
         binding.resultCardMulti.visibility = View.GONE
         binding.convertedFilesList.removeAllViews()
         binding.errorCard.visibility = View.GONE
         binding.toFormatSpinner.setText("", false)
+        binding.convertButton.isEnabled = false
+        binding.convertButton.alpha = 0.5f
         viewModel.resetState()
     }
 
@@ -460,6 +528,14 @@ class MainActivity : AppCompatActivity() {
         toFormatAdapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, emptyList())
         binding.toFormatSpinner.setAdapter(toFormatAdapter)
         binding.fileSelectionCard.visibility = View.VISIBLE
+        binding.convertButton.isEnabled = false
+        binding.convertButton.alpha = 0.5f
+
+        binding.toFormatSpinner.setOnItemClickListener { _, _, _, _ ->
+            val hasSelection = binding.toFormatSpinner.text.toString().isNotBlank()
+            binding.convertButton.isEnabled = hasSelection
+            binding.convertButton.alpha = if (hasSelection) 1.0f else 0.5f
+        }
     }
 
     private fun populateSelectedFilesList(files: List<SelectedFileItem>) {
@@ -551,6 +627,7 @@ class MainActivity : AppCompatActivity() {
             fileName.endsWith(".mov", ignoreCase = true) -> "video/quicktime"
             fileName.endsWith(".mkv", ignoreCase = true) -> "video/x-matroska"
             fileName.endsWith(".webm", ignoreCase = true) -> "video/webm"
+            fileName.endsWith(".3gp", ignoreCase = true) -> "video/3gpp"
             fileName.endsWith(".gif", ignoreCase = true) -> "image/gif"
             
             // Audio formats
@@ -754,6 +831,74 @@ class MainActivity : AppCompatActivity() {
         }
     }
     
+    private fun getSelectedQuality(): QualityPreset = when {
+        binding.qualityHigh.isChecked -> QualityPreset.HIGH
+        binding.qualityLow.isChecked  -> QualityPreset.LOW
+        else                          -> QualityPreset.MEDIUM
+    }
+
+    private fun getMediaToolOptions(): MediaToolOptions {
+        val sliderValues = binding.trimRangeSlider.values
+        val trimStartMs = if (binding.trimCheckBox.isChecked && sliderValues.size >= 2) sliderValues[0].toLong() * 1000L else 0L
+        val trimEndMs   = if (binding.trimCheckBox.isChecked && sliderValues.size >= 2) sliderValues[1].toLong() * 1000L else 0L
+        val speedFactor = if (binding.speedCheckBox.isChecked) {
+            when {
+                binding.speed025.isChecked -> 0.25f
+                binding.speed05.isChecked  -> 0.5f
+                binding.speed075.isChecked -> 0.75f
+                binding.speed15.isChecked  -> 1.5f
+                binding.speed2.isChecked   -> 2.0f
+                binding.speed3.isChecked   -> 3.0f
+                binding.speed4.isChecked   -> 4.0f
+                else                       -> 1.0f
+            }
+        } else 1.0f
+        return MediaToolOptions(
+            trimStartMs = trimStartMs,
+            trimEndMs = trimEndMs,
+            speedFactor = speedFactor,
+            flipHorizontal = binding.flipHorizontalCheckBox.isChecked,
+            flipVertical = binding.flipVerticalCheckBox.isChecked
+        )
+    }
+
+    private fun configureTrimSlider(uri: android.net.Uri) {
+        try {
+            val retriever = android.media.MediaMetadataRetriever()
+            contentResolver.openFileDescriptor(uri, "r")?.use { pfd ->
+                retriever.setDataSource(pfd.fileDescriptor)
+            }
+            val durationMs = retriever.extractMetadata(
+                android.media.MediaMetadataRetriever.METADATA_KEY_DURATION
+            )?.toLongOrNull() ?: 0L
+            retriever.release()
+
+            mediaDurationMs = durationMs
+            val totalSec = (durationMs / 1000f).coerceAtLeast(1f)
+            binding.trimRangeSlider.valueFrom = 0f
+            binding.trimRangeSlider.valueTo = totalSec
+            binding.trimRangeSlider.stepSize = if (totalSec > 600) 1f else 0f
+            binding.trimRangeSlider.values = listOf(0f, totalSec)
+            binding.trimStartLabel.text = formatMs(0)
+            binding.trimEndLabel.text = formatMs(durationMs)
+        } catch (e: Exception) {
+            android.util.Log.w("MainActivity", "Could not read media duration", e)
+            mediaDurationMs = 0L
+            binding.trimRangeSlider.valueFrom = 0f
+            binding.trimRangeSlider.valueTo = 100f
+            binding.trimRangeSlider.values = listOf(0f, 100f)
+        }
+    }
+
+    private fun formatMs(ms: Long): String {
+        val totalSec = ms / 1000
+        val h = totalSec / 3600
+        val m = (totalSec % 3600) / 60
+        val s = totalSec % 60
+        return if (h > 0) String.format("%d:%02d:%02d", h, m, s)
+        else String.format("%d:%02d", m, s)
+    }
+
     private fun getImageScale(): Float? {
         // Only return scale if image scaling card is visible (image conversion)
         if (binding.imageScalingCard.visibility == android.view.View.VISIBLE) {
@@ -795,6 +940,8 @@ class MainActivity : AppCompatActivity() {
         toFormatAdapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, compatibleFormatNames)
         binding.toFormatSpinner.setAdapter(toFormatAdapter)
         binding.toFormatSpinner.setText("", false)
+        binding.convertButton.isEnabled = false
+        binding.convertButton.alpha = 0.5f
     }
 
     private fun showInfoDialog() {
@@ -809,6 +956,12 @@ class MainActivity : AppCompatActivity() {
         infoDialog = dialog
         dialog.setOnDismissListener { infoDialog = null }
         dialog.show()
+    }
+
+    private fun scrollToView(target: View) {
+        target.post {
+            binding.mainScrollView.smoothScrollTo(0, target.top)
+        }
     }
 
     override fun onDestroy() {

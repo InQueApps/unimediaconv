@@ -7,16 +7,27 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
-    <!-- File selection/saving is handled through system pickers (SAF), no broad storage permission required. -->
+    <!-- Permissions for file access -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+    <!-- API 33+: granular media permissions (optional; GetContent picker works without them) -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
+        tools:ignore="ScopedStorage" />
+
+    <!-- Foreground service: keeps long conversions alive when app is backgrounded -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
-        android:icon="@drawable/umclogo_icon"
-        android:label="@string/app_name"
-        android:roundIcon="@drawable/umclogo_icon"
-        android:supportsRtl="true"
+        android:icon="@drawable/umcicon"
+        android:roundIcon="@drawable/umcicon"
         android:theme="@style/Theme.UniversalConverter"
         tools:targetApi="31">
 
@@ -24,7 +35,7 @@
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
             android:value="ca-app-pub-1522396353318857~7583236575" />
-        
+
         <!-- File Provider for sharing converted files -->
         <provider
             android:name="androidx.core.content.FileProvider"
@@ -35,7 +46,13 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
-        
+
+        <!-- Foreground service that keeps conversions alive when the app is backgrounded -->
+        <service
+            android:name=".ConversionForegroundService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
         <activity
             android:name=".LandingActivity"
             android:exported="true"

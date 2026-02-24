@@ -28,6 +28,7 @@ enum class FileFormat(
     MOV("MOV Video", "mov", "video/quicktime", FormatCategory.VIDEO),
     MKV("MKV Video", "mkv", "video/x-matroska", FormatCategory.VIDEO),
     WEBM("WebM Video", "webm", "video/webm", FormatCategory.VIDEO),
+    THREEGP("3GP Video", "3gp", "video/3gpp", FormatCategory.VIDEO),
     GIF("GIF Animation", "gif", "image/gif", FormatCategory.VIDEO),
     
     // Audio Formats
@@ -50,23 +51,26 @@ enum class FileFormat(
             return values().filter { it.category == category }
         }
         
+        private val unsupportedTargets = setOf(MKV, HEIC, MP3)
+
         fun getSupportedConversions(fromFormat: FileFormat): List<FileFormat> {
             val sameCategory = when (fromFormat.category) {
                 FormatCategory.DOCUMENT -> getFormatsByCategory(FormatCategory.DOCUMENT)
+                    .filter { it != fromFormat }
                 FormatCategory.IMAGE -> getFormatsByCategory(FormatCategory.IMAGE)
+                    .filter { it != fromFormat && it !in unsupportedTargets }
                 FormatCategory.VIDEO -> getFormatsByCategory(FormatCategory.VIDEO)
+                    .filter { it !in unsupportedTargets }
                 FormatCategory.AUDIO -> getFormatsByCategory(FormatCategory.AUDIO)
-            }.filter { it != fromFormat }
+                    .filter { it !in unsupportedTargets }
+            }
             val crossCategory = when {
-                // Images → PDF
                 fromFormat.category == FormatCategory.IMAGE ->
                     listOf(FileFormat.PDF)
-                // PDF → JPG/PNG
                 fromFormat == FileFormat.PDF ->
                     listOf(FileFormat.JPG, FileFormat.PNG)
-                // Video → extract audio (MP3, WAV)
                 fromFormat.category == FormatCategory.VIDEO ->
-                    listOf(FileFormat.MP3, FileFormat.WAV)
+                    listOf(FileFormat.WAV, FileFormat.M4A)
                 else -> emptyList()
             }
             return (sameCategory + crossCategory).distinct()
