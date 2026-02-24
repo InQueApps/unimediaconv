@@ -468,7 +468,7 @@ class DocxConverter {
 <package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="uid">
     <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
         <dc:title>$title</dc:title>
-        <dc:creator>Universal Converter</dc:creator>
+        <dc:creator>AnyConvert</dc:creator>
         <dc:language>en</dc:language>
         <dc:identifier id="uid">urn:uuid:${java.util.UUID.randomUUID()}</dc:identifier>
     </metadata>
