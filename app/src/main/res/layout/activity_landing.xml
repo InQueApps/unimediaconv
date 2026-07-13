@@ -24,16 +24,14 @@
         android:layout_marginTop="48dp"
         android:gravity="center_horizontal">
 
-        <TextView
+        <ImageView
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/landing_title"
-            android:textSize="28sp"
-            android:textStyle="bold"
-            android:textColor="@android:color/black"
-            android:letterSpacing="0.03"
-            android:textAlignment="center"
-            android:gravity="center"
+            android:layout_height="56dp"
+            android:layout_gravity="center_horizontal"
+            android:src="@drawable/logo"
+            android:scaleType="fitCenter"
+            android:adjustViewBounds="true"
+            android:contentDescription="@string/app_name"
             android:layout_marginBottom="14dp" />
 
         <TextView

@@ -1463,13 +1463,16 @@ class PdfConverter {
         }
     }
 
-    /** Renders each PDF page to an image (JPG or PNG) and returns a zip containing all images. */
+    /** Renders each PDF page to an image (JPG, PNG, WEBP, BMP, or TIFF) and returns a zip containing all images. */
     fun convertPdfToImages(pdfFile: File, context: Context, targetFormat: FileFormat, progressCallback: (Float) -> Unit = { _ -> }): File {
         progressCallback(0.1f)
         val zipFile = File(context.cacheDir, "${pdfFile.nameWithoutExtension}_pages.zip")
         val ext = when (targetFormat) {
             FileFormat.JPG, FileFormat.JPEG -> "jpg"
             FileFormat.PNG -> "png"
+            FileFormat.WEBP -> "webp"
+            FileFormat.BMP -> "bmp"
+            FileFormat.TIFF -> "tiff"
             else -> "png"
         }
         ParcelFileDescriptor.open(pdfFile, ParcelFileDescriptor.MODE_READ_ONLY).use { pfd ->
@@ -1486,10 +1489,19 @@ class PdfConverter {
                             page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
                             val entry = ZipEntry("page_${i + 1}.$ext")
                             zipOut.putNextEntry(entry)
-                            if (ext == "jpg") {
-                                bitmap.compress(Bitmap.CompressFormat.JPEG, 90, zipOut)
-                            } else {
-                                bitmap.compress(Bitmap.CompressFormat.PNG, 100, zipOut)
+                            when (targetFormat) {
+                                FileFormat.JPG, FileFormat.JPEG ->
+                                    bitmap.compress(Bitmap.CompressFormat.JPEG, 90, zipOut)
+                                FileFormat.PNG ->
+                                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, zipOut)
+                                FileFormat.WEBP ->
+                                    bitmap.compress(Bitmap.CompressFormat.WEBP, 90, zipOut)
+                                FileFormat.BMP ->
+                                    ImageExportUtil.writeBmp(bitmap, zipOut)
+                                FileFormat.TIFF ->
+                                    ImageExportUtil.writeTiff(bitmap, zipOut)
+                                else ->
+                                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, zipOut)
                             }
                             zipOut.closeEntry()
                             bitmap.recycle()

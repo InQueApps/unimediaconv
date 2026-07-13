@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
@@ -42,30 +43,30 @@
                 android:orientation="vertical"
                 android:padding="14dp">
 
-                <!-- Row 1: App title (centered) + info icon right -->
-                <LinearLayout
+                <!-- Row 1: Logo centered in full bar width; info icon overlaid on right -->
+                <FrameLayout
                     android:id="@+id/conversionsBarFirstRow"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
+                    android:minHeight="52dp"
                     android:layout_marginBottom="10dp">
 
-                    <TextView
+                    <!-- Logo centered in entire bar (not shifted by info button) -->
+                    <ImageView
                         android:id="@+id/conversionsBarTitle"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="@string/app_name"
-                        android:textSize="28sp"
-                        android:textStyle="bold"
-                        android:textColor="@color/btn_glass_text"
-                        android:gravity="center" />
+                        android:layout_width="wrap_content"
+                        android:layout_height="44dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/logo"
+                        android:scaleType="fitCenter"
+                        android:contentDescription="@string/app_name"
+                        android:adjustViewBounds="true" />
 
                     <ImageView
                         android:id="@+id/infoButton"
                         android:layout_width="40dp"
                         android:layout_height="40dp"
+                        android:layout_gravity="end|center_vertical"
                         android:padding="8dp"
                         android:background="?attr/selectableItemBackgroundBorderless"
                         android:src="@drawable/ic_info"
@@ -73,7 +74,7 @@
                         android:contentDescription="Show converter information"
                         android:clickable="true"
                         android:focusable="true" />
-                </LinearLayout>
+                </FrameLayout>
 
                 <!-- Row 2: Points centered, Add points + Premium on the right (hidden when premium) -->
                 <LinearLayout
@@ -163,16 +164,37 @@
                     android:textColor="@color/btn_glass_text"
                     android:layout_marginBottom="12dp" />
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/selectFileButton"
-                    style="@style/Widget.UniversalConverter.Button.Glass"
+                <LinearLayout
                     android:layout_width="match_parent"
-                    android:layout_height="56dp"
-                    android:text="@string/button_choose_files"
-                    android:textSize="16sp"
-                    app:icon="@android:drawable/ic_menu_upload"
-                    app:iconGravity="textStart"
-                    android:layout_marginBottom="12dp" />
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:baselineAligned="false"
+                    android:layout_marginBottom="12dp">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/selectFileButton"
+                        style="@style/Widget.UniversalConverter.Button.Glass"
+                        android:layout_width="0dp"
+                        android:layout_height="56dp"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="8dp"
+                        android:text="@string/button_choose_files"
+                        android:textSize="16sp"
+                        app:icon="@android:drawable/ic_menu_upload"
+                        app:iconGravity="textStart" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/linkMediaButton"
+                        style="@style/Widget.UniversalConverter.Button.Glass"
+                        android:layout_width="0dp"
+                        android:layout_height="56dp"
+                        android:layout_weight="1"
+                        android:layout_marginStart="8dp"
+                        android:text="@string/button_link_media"
+                        android:textSize="16sp"
+                        app:icon="@android:drawable/ic_menu_share"
+                        app:iconGravity="textStart" />
+                </LinearLayout>
 
                 <TextView
                     android:id="@+id/selectedFileName"
@@ -243,6 +265,16 @@
                         android:hint="Select target format"
                         android:textSize="16sp" />
                 </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/livePreviewSwitch"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:enabled="false"
+                    android:text="@string/label_live_preview"
+                    android:textColor="@color/btn_glass_text"
+                    android:textSize="15sp" />
             </LinearLayout>
         </FrameLayout>
 
@@ -398,13 +430,29 @@
                     android:orientation="vertical"
                     android:visibility="gone">
 
-                    <CheckBox
-                        android:id="@+id/trimCheckBox"
-                        android:layout_width="wrap_content"
+                    <RadioGroup
+                        android:id="@+id/clipModeGroup"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="@string/label_trim"
-                        android:textColor="@color/btn_glass_text"
-                        android:textSize="15sp" />
+                        android:orientation="horizontal">
+
+                        <RadioButton
+                            android:id="@+id/clipModeTrim"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/label_trim"
+                            android:textColor="@color/btn_glass_text"
+                            android:textSize="15sp"
+                            android:layout_marginEnd="16dp" />
+
+                        <RadioButton
+                            android:id="@+id/clipModeExtractFrame"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/label_extract_frame"
+                            android:textColor="@color/btn_glass_text"
+                            android:textSize="15sp" />
+                    </RadioGroup>
 
                     <LinearLayout
                         android:id="@+id/trimInputs"
@@ -421,6 +469,7 @@
                             android:id="@+id/trimRangeSlider"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
+                            android:layoutDirection="ltr"
                             android:valueFrom="0"
                             android:valueTo="100"
                             android:stepSize="1"
@@ -454,6 +503,58 @@
                                 android:textColor="@color/btn_glass_text"
                                 android:gravity="end" />
                         </LinearLayout>
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:text="@string/trim_keyframe_hint"
+                            android:textSize="12sp"
+                            android:textColor="@color/btn_glass_text"
+                            android:alpha="0.75" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/extractFrameInputs"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:visibility="gone"
+                        android:layout_marginStart="16dp"
+                        android:layout_marginEnd="16dp"
+                        android:layout_marginTop="4dp"
+                        android:layout_marginBottom="12dp">
+
+                        <com.google.android.material.slider.Slider
+                            android:id="@+id/extractFrameSlider"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layoutDirection="ltr"
+                            android:valueFrom="0"
+                            android:valueTo="100"
+                            android:stepSize="0"
+                            app:labelBehavior="gone"
+                            app:trackColorActive="@color/dark_blue_800"
+                            app:trackColorInactive="@color/blue_200"
+                            app:thumbColor="@color/dark_blue_800" />
+
+                        <TextView
+                            android:id="@+id/extractFrameTimeLabel"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="0:00"
+                            android:textSize="13sp"
+                            android:textColor="@color/btn_glass_text"
+                            android:gravity="center" />
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:text="@string/extract_frame_hint"
+                            android:textSize="12sp"
+                            android:textColor="@color/btn_glass_text"
+                            android:alpha="0.75" />
                     </LinearLayout>
                 </LinearLayout>
 
@@ -473,95 +574,53 @@
                         android:textColor="@color/btn_glass_text"
                         android:textSize="15sp" />
 
-                    <HorizontalScrollView
+                    <LinearLayout
                         android:id="@+id/speedOptions"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:scrollbars="none"
+                        android:orientation="vertical"
                         android:visibility="gone"
                         android:layout_marginStart="32dp"
                         android:layout_marginTop="8dp"
                         android:layout_marginBottom="12dp">
 
-                        <RadioGroup
-                            android:id="@+id/speedGroup"
-                            android:layout_width="wrap_content"
+                        <LinearLayout
+                            android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:orientation="horizontal">
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical">
 
-                            <RadioButton
-                                android:id="@+id/speed025"
+                            <com.google.android.material.slider.Slider
+                                android:id="@+id/speedSlider"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:valueFrom="0"
+                                android:valueTo="7"
+                                android:value="3"
+                                android:stepSize="1" />
+
+                            <TextView
+                                android:id="@+id/speedValueLabel"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="@string/speed_025"
-                                android:textColor="@color/btn_glass_text"
-                                android:layout_marginEnd="8dp" />
-
-                            <RadioButton
-                                android:id="@+id/speed05"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="@string/speed_05"
-                                android:textColor="@color/btn_glass_text"
-                                android:layout_marginEnd="8dp" />
-
-                            <RadioButton
-                                android:id="@+id/speed075"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="@string/speed_075"
-                                android:textColor="@color/btn_glass_text"
-                                android:layout_marginEnd="8dp" />
-
-                            <RadioButton
-                                android:id="@+id/speed1"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
+                                android:layout_marginStart="12dp"
+                                android:minWidth="36dp"
                                 android:text="@string/speed_1"
                                 android:textColor="@color/btn_glass_text"
-                                android:checked="true"
-                                android:layout_marginEnd="8dp" />
-
-                            <RadioButton
-                                android:id="@+id/speed15"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="@string/speed_15"
-                                android:textColor="@color/btn_glass_text"
-                                android:layout_marginEnd="8dp" />
-
-                            <RadioButton
-                                android:id="@+id/speed2"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="@string/speed_2"
-                                android:textColor="@color/btn_glass_text"
-                                android:layout_marginEnd="8dp" />
-
-                            <RadioButton
-                                android:id="@+id/speed3"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="@string/speed_3"
-                                android:textColor="@color/btn_glass_text"
-                                android:layout_marginEnd="8dp" />
-
-                            <RadioButton
-                                android:id="@+id/speed4"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="@string/speed_4"
-                                android:textColor="@color/btn_glass_text" />
-                        </RadioGroup>
-                    </HorizontalScrollView>
+                                android:textSize="15sp"
+                                android:textStyle="bold" />
+                        </LinearLayout>
+                    </LinearLayout>
                 </LinearLayout>
 
-                <!-- Flip / Mirror -->
+                <!-- Flip / Mirror (label + options in line) -->
                 <LinearLayout
                     android:id="@+id/flipSection"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
                     android:visibility="gone">
 
                     <TextView
@@ -570,7 +629,7 @@
                         android:text="@string/label_flip"
                         android:textColor="@color/btn_glass_text"
                         android:textSize="15sp"
-                        android:layout_marginBottom="4dp" />
+                        android:layout_marginEnd="12dp" />
 
                     <CheckBox
                         android:id="@+id/flipHorizontalCheckBox"
@@ -579,7 +638,7 @@
                         android:text="@string/label_flip_horizontal"
                         android:textColor="@color/btn_glass_text"
                         android:textSize="14sp"
-                        android:layout_marginStart="16dp" />
+                        android:layout_marginEnd="8dp" />
 
                     <CheckBox
                         android:id="@+id/flipVerticalCheckBox"
@@ -587,9 +646,87 @@
                         android:layout_height="wrap_content"
                         android:text="@string/label_flip_vertical"
                         android:textColor="@color/btn_glass_text"
-                        android:textSize="14sp"
+                        android:textSize="14sp" />
+                </LinearLayout>
+
+                <!-- Rotate (90°, 180°, 270°) -->
+                <LinearLayout
+                    android:id="@+id/rotateSection"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/label_rotate"
+                        android:textColor="@color/btn_glass_text"
+                        android:textSize="15sp"
+                        android:layout_marginBottom="4dp" />
+
+                    <RadioGroup
+                        android:id="@+id/rotateGroup"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
                         android:layout_marginStart="16dp"
-                        android:layout_marginBottom="8dp" />
+                        android:layout_marginBottom="8dp">
+
+                        <RadioButton
+                            android:id="@+id/rotateNone"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/rotate_none"
+                            android:textColor="@color/btn_glass_text"
+                            android:textSize="14sp"
+                            android:checked="true"
+                            android:layout_marginEnd="12dp" />
+
+                        <RadioButton
+                            android:id="@+id/rotate90"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/rotate_90"
+                            android:textColor="@color/btn_glass_text"
+                            android:textSize="14sp"
+                            android:layout_marginEnd="12dp" />
+
+                        <RadioButton
+                            android:id="@+id/rotate180"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/rotate_180"
+                            android:textColor="@color/btn_glass_text"
+                            android:textSize="14sp"
+                            android:layout_marginEnd="12dp" />
+
+                        <RadioButton
+                            android:id="@+id/rotate270"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/rotate_270"
+                            android:textColor="@color/btn_glass_text"
+                            android:textSize="14sp" />
+                    </RadioGroup>
+                </LinearLayout>
+
+                <!-- Video: export all frames as ZIP when converting to image -->
+                <LinearLayout
+                    android:id="@+id/exportFramesSection"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:visibility="gone"
+                    android:layout_marginTop="8dp">
+
+                    <CheckBox
+                        android:id="@+id/exportFramesCheckBox"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/label_export_all_frames"
+                        android:textColor="@color/btn_glass_text"
+                        android:textSize="14sp" />
                 </LinearLayout>
 
             </LinearLayout>
@@ -670,6 +807,73 @@
                     </RadioGroup>
                 </LinearLayout>
 
+                <!-- TTS settings: shown for document → audio -->
+                <LinearLayout
+                    android:id="@+id/ttsSettingsSection"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:visibility="gone"
+                    android:layout_marginBottom="12dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/label_tts_settings"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/btn_glass_text"
+                        android:layout_marginBottom="8dp" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/label_tts_speech_rate"
+                        android:textSize="13sp"
+                        android:textColor="@color/btn_glass_text" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:layout_marginBottom="8dp">
+
+                        <SeekBar
+                            android:id="@+id/ttsSpeechRateSeekBar"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:min="50"
+                            android:max="200"
+                            android:progress="100" />
+
+                        <TextView
+                            android:id="@+id/ttsSpeechRateValue"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:text="1.0x"
+                            android:textColor="@color/btn_glass_text"
+                            android:textSize="13sp" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/label_tts_voice"
+                        android:textSize="13sp"
+                        android:textColor="@color/btn_glass_text"
+                        android:layout_marginBottom="4dp" />
+
+                    <Spinner
+                        android:id="@+id/ttsVoiceSpinner"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/format_background"
+                        android:padding="8dp" />
+                </LinearLayout>
+
                 <LinearLayout
                     android:id="@+id/outputOptionContainer"
                     android:layout_width="match_parent"
@@ -723,7 +927,7 @@
                         android:layout_weight="1"
                         android:layout_marginEnd="8dp"
                         android:text="Convert"
-                        android:textSize="16sp"
+                        android:textSize="15sp"
                         app:icon="@android:drawable/ic_menu_send"
                         app:iconGravity="textStart" />
 
@@ -735,7 +939,7 @@
                         android:layout_weight="1"
                         android:layout_marginStart="8dp"
                         android:text="Reset"
-                        android:textSize="16sp"
+                        android:textSize="15sp"
                         app:icon="@android:drawable/ic_menu_revert"
                         app:iconGravity="textStart" />
 
@@ -995,21 +1199,49 @@
             </LinearLayout>
         </FrameLayout>
 
-        <!-- Contact us at bottom -->
-        <TextView
-            android:id="@+id/contactUsText"
-            android:layout_width="wrap_content"
+        <!-- Contact us and debug premium toggle at bottom -->
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
             android:layout_marginTop="16dp"
-            android:layout_marginBottom="16dp"
-            android:padding="4dp"
-            android:text="Contact us"
-            android:textSize="14sp"
-            android:textColor="@color/btn_glass_text"
-            android:clickable="true"
-            android:focusable="true"
-            android:background="?attr/selectableItemBackgroundBorderless" />
+            android:layout_marginBottom="16dp">
+
+            <TextView
+                android:id="@+id/contactUsText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:padding="4dp"
+                android:text="Contact us"
+                android:textSize="14sp"
+                android:textColor="@color/btn_glass_text"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?attr/selectableItemBackgroundBorderless" />
+
+            <TextView
+                android:id="@+id/debugTogglePremiumText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="16dp"
+                android:padding="4dp"
+                android:text="@string/button_debug_toggle_premium"
+                android:textSize="14sp"
+                android:textColor="@color/btn_glass_text"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:visibility="gone" />
+        </LinearLayout>
 
     </LinearLayout>
     </ScrollView>
-</FrameLayout> 
+
+    <FrameLayout
+        android:id="@+id/floatingPreviewHost"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clipChildren="false"
+        android:clipToPadding="false" />
+</FrameLayout>

@@ -39,6 +39,17 @@ class PurchaseActivity : AppCompatActivity() {
             launchPremiumPurchaseFlow()
         }
 
+        binding.unlockWithUriButton.setOnClickListener {
+            val uri = binding.unlockUriInput.text?.toString()?.trim()
+            if (PremiumUnlockUri.isValidUnlockUri(uri)) {
+                ConversionPrefs.setUnlocked(this, true)
+                showToast(getString(R.string.toast_purchase_success))
+                finish()
+            } else {
+                showToast(getString(R.string.toast_unlock_uri_invalid))
+            }
+        }
+
         binding.buyButton.isEnabled = true
         updateStatus("Connecting to Google Play...")
         setupBilling()

@@ -75,4 +75,12 @@
 
     <color name="main_status_bar">@color/dark_blue_800</color>
     <color name="main_navigation_bar">@color/dark_blue_800</color>
+
+    <!-- Studio preview (cinema-style dark) -->
+    <color name="preview_background">#FF0A0E14</color>
+    <color name="preview_surface">#FF121A24</color>
+    <color name="preview_on_surface">#FFE8EEF5</color>
+    <color name="preview_muted">#B3C7D4E7</color>
+    <color name="preview_accent">#FF5C9BD5</color>
+    <color name="preview_scrim">#CC0A0E14</color>
 </resources>

@@ -15,6 +15,19 @@
     <!-- File selection -->
     <string name="button_choose_file">Choose File</string>
     <string name="button_choose_files">Choose Files</string>
+    <string name="button_link_media">Link media</string>
+    <string name="title_link_media">Link media</string>
+    <string name="hint_link_media_url">Paste webpage URL</string>
+    <string name="toast_link_media_fetching">Fetching page…</string>
+    <string name="toast_link_media_no_media">No direct audio, video, or PDF link on this page</string>
+    <string name="title_save_page_as_pdf">Save page as PDF</string>
+    <string name="message_save_page_as_pdf">No direct media link found (e.g. YouTube doesn’t provide direct links). Save this page as PDF as it appears?</string>
+    <string name="toast_saving_page_pdf">Saving page as PDF…</string>
+    <string name="toast_page_pdf_saved">Page saved as PDF</string>
+    <string name="toast_page_pdf_failed">Could not save page as PDF</string>
+    <string name="toast_link_media_error">Could not get media from link: %1$s</string>
+    <string name="toast_link_media_success">Media added from link</string>
+    <string name="toast_link_media_page_saved">Page saved. Choose a format to convert to (e.g. PDF).</string>
     <string name="button_change_file">Change File</string>
     <string name="button_add_or_change_files">Add or change files</string>
     <string name="label_selected_file">Selected: %1$s</string>
@@ -34,7 +47,24 @@
     <!-- Errors and hints -->
     <string name="error_storage_permission_required">Storage permission is required</string>
     <string name="error_unsupported_format">Unsupported file format: %1$s</string>
+    <string name="warn_mixed_file_types">Selected files are different types. Conversion uses the first file\'s format for all items.</string>
+    <string name="label_export_all_frames">Export all frames (ZIP)</string>
+    <string name="button_preview">Preview</string>
+    <string name="label_live_preview">Live preview</string>
+    <string name="preview_resize">Resize preview</string>
+    <string name="preview_title">Conversion preview</string>
+    <string name="preview_loading">Preparing preview…</string>
+    <string name="preview_disclaimer_format">Preview shows content; final %1$s file may differ in encoding or layout.</string>
+    <string name="preview_disclaimer_sample">Sample preview — full conversion may include more content.</string>
+    <string name="preview_disclaimer_ocr">Text recognition preview from image.</string>
+    <string name="preview_audio_mode">Audio preview</string>
+    <string name="preview_page_indicator">Page %1$d of %2$d</string>
+    <string name="preview_unavailable">Preview is not available for this conversion.</string>
+    <string name="preview_error">Could not load preview.</string>
+    <string name="preview_slideshow_hint">Slideshow will include all selected images.</string>
+    <string name="preview_close">Close</string>
     <string name="error_select_target_format">Please select a target format</string>
+    <string name="error_record_audio_permission">Microphone access is needed to transcribe audio to text</string>
     <string name="error_opening_file">Error opening file: %1$s</string>
     <string name="error_sharing_file">Error sharing file: %1$s</string>
     <string name="error_saving_file">Error saving file: %1$s</string>
@@ -62,10 +92,17 @@
     <string name="error_purchase_product_not_found">Product %1$s not found in Play (code %2$d).</string>
     <string name="error_purchase_no_offer">No subscription offer found for this product.</string>
     <string name="purchase_status_connecting">Connecting to Google Play...</string>
+    <string name="label_have_unlock_link">Have an unlock code?</string>
+    <string name="hint_unlock_uri">Paste unlock code</string>
+    <string name="button_unlock_with_uri">Unlock</string>
+    <string name="toast_unlock_uri_invalid">Invalid unlock code.</string>
 
     <!-- Media tools -->
     <string name="label_media_tools">Media Tools (optional)</string>
     <string name="label_trim">Trim / Extract clip</string>
+    <string name="label_extract_frame">Extract frame</string>
+    <string name="trim_keyframe_hint">Trim start aligns to the nearest video keyframe (may begin slightly earlier).</string>
+    <string name="extract_frame_hint">Choose the exact moment to capture when converting video to an image.</string>
     <string name="hint_start_time">Start (mm:ss)</string>
     <string name="hint_end_time">End (mm:ss)</string>
     <string name="label_change_speed">Change speed</string>
@@ -80,6 +117,11 @@
     <string name="label_flip">Flip / Mirror</string>
     <string name="label_flip_horizontal">Horizontal (↔)</string>
     <string name="label_flip_vertical">Vertical (↕)</string>
+    <string name="label_rotate">Rotate (clockwise)</string>
+    <string name="rotate_none">None</string>
+    <string name="rotate_90">90°</string>
+    <string name="rotate_180">180°</string>
+    <string name="rotate_270">270°</string>
 
     <!-- Quality selector -->
     <string name="label_quality">Quality</string>
@@ -121,6 +163,15 @@
     <string name="info_dialog_formats">Documents: PDF, EPUB, DOCX, TXT, RTF\nImages: JPG, PNG, WEBP, HEIC, BMP, TIFF\nVideo: MP4, MOV, AVI, MKV, WEBM, GIF\nAudio: MP3, WAV, M4A</string>
 
     <!-- Contact us -->
+    <string name="button_debug_toggle_premium">Toggle premium</string>
+    <string name="toast_debug_premium_on">Debug: upgraded to premium.</string>
+    <string name="toast_debug_premium_off">Debug: switched to regular user.</string>
     <string name="contact_us_chooser">Send email with</string>
     <string name="contact_us_no_app">No email app installed.</string>
+
+    <!-- TTS (read aloud) -->
+    <string name="label_tts_settings">Read aloud settings</string>
+    <string name="label_tts_speech_rate">Speech rate</string>
+    <string name="label_tts_voice">Voice</string>
+    <string name="tts_voice_default">System default</string>
 </resources>

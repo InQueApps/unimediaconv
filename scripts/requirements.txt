@@ -1,0 +1,9 @@
+requests>=2.28.0
+beautifulsoup4>=4.11.0
+
+# Optional: for --capture (capture video URL from browser network requests)
+# playwright>=1.40.0
+# After pip install: playwright install chromium
+
+# Optional: fallback when ffmpeg fails (e.g. protected HLS)
+# yt-dlp

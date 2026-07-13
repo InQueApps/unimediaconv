@@ -1,9 +1,11 @@
 package ab.inque.converter
 
 import android.content.Context
+import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.ImageDecoder
+import android.media.AudioFormat
 import android.media.ExifInterface
 import android.media.MediaCodec
 import android.media.MediaCodecInfo
@@ -13,6 +15,15 @@ import android.media.MediaFormat
 import android.media.MediaMetadataRetriever
 import android.media.MediaMuxer
 import android.os.Build
+import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.os.ParcelFileDescriptor
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
+import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import java.io.BufferedOutputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -22,11 +33,31 @@ import java.io.IOException
 import java.io.RandomAccessFile
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
+import org.jsoup.Jsoup
+import androidx.heifwriter.HeifWriter
+import ab.inque.converter.pipeline.ConversionPipeline
+import ab.inque.converter.pipeline.ConversionPlanner
+import ab.inque.converter.pipeline.FormatCapabilities
+import ab.inque.converter.pipeline.FormatSniffer
+import ab.inque.converter.pipeline.OcrHelper
+import com.arthenica.ffmpegkit.FFmpegKit
+import com.arthenica.ffmpegkit.ReturnCode
 
 class UniversalConverter {
+
+    /** Avoid writing transcode output over the source file when extensions match. */
+    private fun cacheOutputFile(context: Context, sourceFile: File, extension: String): File {
+        val direct = File(context.cacheDir, "${sourceFile.nameWithoutExtension}.$extension")
+        if (direct.absolutePath != sourceFile.absolutePath) return direct
+        return File(context.cacheDir, "${sourceFile.nameWithoutExtension}_out_${System.currentTimeMillis()}.$extension")
+    }
     
     fun convertFile(
         sourceFile: File,
@@ -35,22 +66,91 @@ class UniversalConverter {
         progressCallback: (Float) -> Unit,
         scale: Float? = null,
         quality: QualityPreset = QualityPreset.MEDIUM,
-        toolOptions: MediaToolOptions = MediaToolOptions()
+        toolOptions: MediaToolOptions = MediaToolOptions(),
+        allowMultiHop: Boolean = true
     ): File {
-        val sourceFormat = FileFormat.fromExtension(sourceFile.extension) 
+        val sourceFormat = FileFormat.fromExtension(sourceFile.extension)
+            ?: FormatSniffer.sniff(sourceFile)
             ?: throw IllegalArgumentException("Unsupported source format")
-        
+
+        val caps = FormatCapabilities.from(context)
+
+        // GIF / video file → still image (first frame)
+        if (sourceFormat == FileFormat.GIF && targetFormat.category == FormatCategory.IMAGE) {
+            return convertGifToImage(sourceFile, targetFormat, context, progressCallback, scale, quality, toolOptions)
+        }
+
+        if (allowMultiHop) {
+            val path = ConversionPlanner.findPath(sourceFormat, targetFormat, caps)
+                ?: throw IllegalArgumentException(
+                    "Cannot convert from ${sourceFormat.displayName} to ${targetFormat.displayName}"
+                )
+            if (path.size > 2) {
+                return ConversionPipeline.execute(
+                    this, sourceFile, path, context, progressCallback, scale, quality, toolOptions
+                )
+            }
+        }
+
         // Cross-category: Image → PDF
         if (sourceFormat.category == FormatCategory.IMAGE && targetFormat == FileFormat.PDF) {
             return convertImageToPdf(sourceFile, sourceFormat, context, progressCallback, scale)
         }
-        // Cross-category: PDF → Images (JPG/PNG)
-        if (sourceFormat == FileFormat.PDF && (targetFormat == FileFormat.JPG || targetFormat == FileFormat.JPEG || targetFormat == FileFormat.PNG)) {
+        // Cross-category: PDF → Images
+        if (sourceFormat == FileFormat.PDF && isRasterImageFormat(targetFormat)) {
             return convertDocument(sourceFile, sourceFormat, targetFormat, context, progressCallback)
         }
-        // Cross-category: Video → Audio (WAV, M4A)
+        // Cross-category: Document → Images (via PDF intermediate)
+        if (sourceFormat.category == FormatCategory.DOCUMENT && isRasterImageFormat(targetFormat)) {
+            return convertDocumentToImages(sourceFile, sourceFormat, targetFormat, context, progressCallback)
+        }
+        // Cross-category: Image → Document (OCR)
+        if (sourceFormat.category == FormatCategory.IMAGE && targetFormat.category == FormatCategory.DOCUMENT) {
+            return convertImageToDocument(sourceFile, sourceFormat, targetFormat, context, progressCallback)
+        }
+        // Cross-category: Image → Audio (OCR + TTS)
+        if (sourceFormat.category == FormatCategory.IMAGE && targetFormat.category == FormatCategory.AUDIO) {
+            return convertImageToAudio(sourceFile, sourceFormat, targetFormat, context, progressCallback)
+        }
+        // Cross-category: Image → Video (slideshow)
+        if (sourceFormat.category == FormatCategory.IMAGE && targetFormat.category == FormatCategory.VIDEO) {
+            return convertImagesToVideo(listOf(sourceFile), sourceFormat, targetFormat, context, progressCallback, quality)
+        }
+        // Cross-category: Video → Audio
         if (sourceFormat.category == FormatCategory.VIDEO && targetFormat.category == FormatCategory.AUDIO) {
             return extractAudioFromVideo(sourceFile, sourceFormat, targetFormat, context, progressCallback, toolOptions)
+        }
+        // Cross-category: Video → PDF
+        if (sourceFormat.category == FormatCategory.VIDEO && targetFormat == FileFormat.PDF) {
+            return convertVideoToPdf(sourceFile, context, progressCallback, toolOptions)
+        }
+        // Cross-category: Video → Image
+        if (sourceFormat.category == FormatCategory.VIDEO && isRasterImageFormat(targetFormat)) {
+            return convertVideoToImage(sourceFile, targetFormat, context, progressCallback, toolOptions)
+        }
+        // Cross-category: Video → Document (extract audio → STT)
+        if (sourceFormat.category == FormatCategory.VIDEO && targetFormat.category == FormatCategory.DOCUMENT) {
+            return convertVideoToDocument(sourceFile, sourceFormat, targetFormat, context, progressCallback, toolOptions)
+        }
+        // Cross-category: Document → Audio (TTS)
+        if (sourceFormat.category == FormatCategory.DOCUMENT && targetFormat.category == FormatCategory.AUDIO) {
+            return convertDocumentToAudio(sourceFile, sourceFormat, targetFormat, context, progressCallback)
+        }
+        // Cross-category: Document → Video (render pages as slideshow)
+        if (sourceFormat.category == FormatCategory.DOCUMENT && targetFormat.category == FormatCategory.VIDEO) {
+            return convertDocumentToVideo(sourceFile, sourceFormat, targetFormat, context, progressCallback, quality)
+        }
+        // Cross-category: Audio → Document (STT)
+        if (sourceFormat.category == FormatCategory.AUDIO && targetFormat.category == FormatCategory.DOCUMENT) {
+            return convertAudioToDocument(sourceFile, sourceFormat, targetFormat, context, progressCallback)
+        }
+        // Cross-category: Audio → Image (waveform)
+        if (sourceFormat.category == FormatCategory.AUDIO && isRasterImageFormat(targetFormat)) {
+            return convertAudioToImage(sourceFile, targetFormat, context, progressCallback, toolOptions)
+        }
+        // Cross-category: Audio → Video (static visual + audio)
+        if (sourceFormat.category == FormatCategory.AUDIO && targetFormat.category == FormatCategory.VIDEO) {
+            return convertAudioToVideo(sourceFile, sourceFormat, targetFormat, context, progressCallback, quality, toolOptions)
         }
         // Same category or allowed
         if (sourceFormat.category != targetFormat.category) {
@@ -60,7 +160,7 @@ class UniversalConverter {
         // Fast lossless remux for same-format video/audio with trim/speed only (no flip)
         if (sourceFormat == targetFormat
             && (sourceFormat.category == FormatCategory.VIDEO || sourceFormat.category == FormatCategory.AUDIO)
-            && (toolOptions.hasTrim || toolOptions.hasSpeed) && !toolOptions.hasFlip
+            && (toolOptions.hasTrim || toolOptions.hasSpeed) && !toolOptions.hasFlip && !toolOptions.hasRotation
         ) {
             return remuxWithTools(sourceFile, targetFormat, context, progressCallback, toolOptions)
         }
@@ -70,7 +170,7 @@ class UniversalConverter {
             FormatCategory.IMAGE -> convertImage(sourceFile, sourceFormat, targetFormat, context, progressCallback, scale, quality, toolOptions)
             FormatCategory.VIDEO -> when (targetFormat) {
                 FileFormat.GIF -> convertVideoToGif(sourceFile, context, progressCallback, toolOptions)
-                FileFormat.AVI -> convertVideoToAvi(sourceFile, context, progressCallback, quality, toolOptions)
+                FileFormat.AVI -> convertVideoToAvi(sourceFile, sourceFormat, context, progressCallback, quality, toolOptions)
                 else -> convertVideo(sourceFile, sourceFormat, targetFormat, context, progressCallback, quality, toolOptions)
             }
             FormatCategory.AUDIO -> convertAudio(sourceFile, sourceFormat, targetFormat, context, progressCallback, quality, toolOptions)
@@ -159,7 +259,17 @@ class UniversalConverter {
                 val docxConverter = DocxConverter()
                 docxConverter.convertDocxToEpub(sourceFile, context, progressCallback)
             }
-            sourceFormat == FileFormat.PDF && (targetFormat == FileFormat.JPG || targetFormat == FileFormat.JPEG || targetFormat == FileFormat.PNG) -> {
+            sourceFormat == FileFormat.HTML && targetFormat == FileFormat.PDF -> convertHtmlToPdf(sourceFile, context, progressCallback)
+            sourceFormat == FileFormat.HTML && targetFormat == FileFormat.DOCX -> convertHtmlToDocx(sourceFile, context, progressCallback)
+            sourceFormat == FileFormat.HTML && targetFormat == FileFormat.TXT -> convertHtmlToTxt(sourceFile, context, progressCallback)
+            sourceFormat == FileFormat.HTML && targetFormat == FileFormat.RTF -> convertHtmlToRtf(sourceFile, context, progressCallback)
+            sourceFormat == FileFormat.HTML && targetFormat == FileFormat.EPUB -> convertHtmlToEpub(sourceFile, context, progressCallback)
+            sourceFormat == FileFormat.PDF && targetFormat == FileFormat.HTML -> convertDocumentToHtml(sourceFile, { PdfConverter().convertPdfToText(it, context, progressCallback) }, context, progressCallback)
+            sourceFormat == FileFormat.DOCX && targetFormat == FileFormat.HTML -> convertDocumentToHtml(sourceFile, { DocxConverter().convertDocxToText(it, context, progressCallback) }, context, progressCallback)
+            sourceFormat == FileFormat.TXT && targetFormat == FileFormat.HTML -> convertTxtToHtml(sourceFile, context, progressCallback)
+            sourceFormat == FileFormat.EPUB && targetFormat == FileFormat.HTML -> convertDocumentToHtml(sourceFile, { EpubConverter().convertEpubToText(it, context, progressCallback) }, context, progressCallback)
+            sourceFormat == FileFormat.RTF && targetFormat == FileFormat.HTML -> convertDocumentToHtml(sourceFile, { convertRtfToTxt(it, context, progressCallback) }, context, progressCallback)
+            sourceFormat == FileFormat.PDF && isRasterImageFormat(targetFormat) -> {
                 val pdfConverter = PdfConverter()
                 pdfConverter.convertPdfToImages(sourceFile, context, targetFormat, progressCallback)
             }
@@ -226,7 +336,7 @@ class UniversalConverter {
         progressCallback(0.4f) // Image decoded successfully
 
         // Apply EXIF orientation so output is not flipped/rotated vs. how the image displays in gallery
-        val orientedBitmap = applyExifOrientation(bitmap, sourceFile)
+        val orientedBitmap = applyExifOrientation(bitmap, sourceFile, sourceFormat == FileFormat.HEIC)
         if (orientedBitmap != bitmap) bitmap.recycle()
 
         // Optionally scale the bitmap
@@ -240,17 +350,26 @@ class UniversalConverter {
         }
         progressCallback(0.6f) // Scaling complete
 
-        // Apply flip / mirror if requested
-        val flippedBitmap = if (toolOptions.hasFlip) {
-            val matrix = android.graphics.Matrix()
-            val sx = if (toolOptions.flipHorizontal) -1f else 1f
-            val sy = if (toolOptions.flipVertical) -1f else 1f
-            matrix.preScale(sx, sy)
-            val result = Bitmap.createBitmap(scaledBitmap, 0, 0, scaledBitmap.width, scaledBitmap.height, matrix, true)
+        // Apply rotation (90°, 180°, 270°) if requested
+        val rotatedBitmap = if (toolOptions.hasRotation) {
+            val result = BitmapGeometryUtil.rotateBitmap(scaledBitmap, toolOptions.rotationDegrees)
             if (result != scaledBitmap && scaledBitmap != bitmap) scaledBitmap.recycle()
             result
         } else {
             scaledBitmap
+        }
+
+        // Apply flip / mirror if requested
+        val flippedBitmap = if (toolOptions.hasFlip) {
+            val result = BitmapGeometryUtil.flipBitmap(
+                rotatedBitmap,
+                toolOptions.flipHorizontal,
+                toolOptions.flipVertical
+            )
+            if (result != rotatedBitmap && rotatedBitmap != scaledBitmap) rotatedBitmap.recycle()
+            result
+        } else {
+            rotatedBitmap
         }
 
         progressCallback(0.7f) // Starting compression
@@ -294,6 +413,20 @@ class UniversalConverter {
                 writeTiff(flippedBitmap, outputFile)
                 true
             }
+            FileFormat.HEIC -> {
+                android.util.Log.d("ImageConverter", "Encoding HEIC (device-dependent)")
+                outputStream.close()
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) { // HeifWriter needs API 28; P = 28
+                    throw UnsupportedOperationException("HEIC output requires Android 9 (API 28) or later")
+                }
+                val heicQuality = when (quality) {
+                    QualityPreset.LOW -> 70
+                    QualityPreset.MEDIUM -> 85
+                    QualityPreset.HIGH -> 95
+                }
+                writeHeic(flippedBitmap, outputFile, heicQuality)
+                true
+            }
             else -> throw UnsupportedOperationException("Unsupported target image format: ${targetFormat.displayName}")
         }
         
@@ -303,7 +436,8 @@ class UniversalConverter {
         
         progressCallback(0.9f) // Compression complete, cleaning up
         
-        if (flippedBitmap != scaledBitmap) flippedBitmap.recycle()
+        if (flippedBitmap != rotatedBitmap) flippedBitmap.recycle()
+        if (rotatedBitmap != scaledBitmap) rotatedBitmap.recycle()
         if (scaledBitmap != orientedBitmap) scaledBitmap.recycle()
         orientedBitmap.recycle()
         
@@ -318,35 +452,18 @@ class UniversalConverter {
     /**
      * Applies EXIF orientation so the bitmap matches how the image displays in gallery/viewers.
      * Returns the same bitmap if orientation is normal or unsupported; otherwise a new bitmap.
+     * [decodedWithImageDecoder] — ImageDecoder already bakes EXIF into pixels (HEIC on API 28+).
      */
-    private fun applyExifOrientation(bitmap: Bitmap, sourceFile: File): Bitmap {
-        val orientation = try {
-            ExifInterface(sourceFile.absolutePath).getAttributeInt(
-                ExifInterface.TAG_ORIENTATION,
-                ExifInterface.ORIENTATION_NORMAL
-            )
-        } catch (_: Exception) {
-            ExifInterface.ORIENTATION_NORMAL
-        }
-        if (orientation == ExifInterface.ORIENTATION_NORMAL) return bitmap
-        val matrix = android.graphics.Matrix()
-        when (orientation) {
-            ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> matrix.setScale(-1f, 1f)
-            ExifInterface.ORIENTATION_FLIP_VERTICAL -> matrix.setScale(1f, -1f)
-            ExifInterface.ORIENTATION_ROTATE_180 -> matrix.setRotate(180f)
-            ExifInterface.ORIENTATION_ROTATE_90 -> matrix.setRotate(90f)
-            ExifInterface.ORIENTATION_ROTATE_270 -> matrix.setRotate(270f)
-            ExifInterface.ORIENTATION_TRANSPOSE -> {
-                matrix.setRotate(90f)
-                matrix.postScale(-1f, 1f)
-            }
-            ExifInterface.ORIENTATION_TRANSVERSE -> {
-                matrix.setRotate(270f)
-                matrix.postScale(-1f, 1f)
-            }
-            else -> return bitmap
-        }
-        return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+    private fun applyExifOrientation(
+        bitmap: Bitmap,
+        sourceFile: File,
+        decodedWithImageDecoder: Boolean = false
+    ): Bitmap {
+        if (decodedWithImageDecoder) return bitmap
+        val matrix = BitmapGeometryUtil.exifOrientationMatrix(
+            BitmapGeometryUtil.readExifOrientation(sourceFile)
+        ) ?: return bitmap
+        return BitmapGeometryUtil.transformBitmap(bitmap, matrix)
     }
     
     private fun convertVideo(
@@ -360,8 +477,23 @@ class UniversalConverter {
     ): File {
         progressCallback(0.05f)
         
-        val outputFile = File(context.cacheDir, "${sourceFile.nameWithoutExtension}.${targetFormat.extension}")
-        
+        if (targetFormat == FileFormat.MKV) {
+            val mp4File = convertVideo(
+                sourceFile, sourceFormat, FileFormat.MP4, context,
+                { p -> progressCallback(p * 0.9f) },
+                quality, toolOptions
+            )
+            val mkvFile = File(context.cacheDir, "${sourceFile.nameWithoutExtension}.mkv")
+            try {
+                return ab.inque.converter.pipeline.FfmpegVideoExporter.remuxToMkv(mp4File, mkvFile) { p ->
+                    progressCallback(0.9f + 0.1f * p)
+                }
+            } finally {
+                mp4File.delete()
+            }
+        }
+
+        val outputFile = cacheOutputFile(context, sourceFile, targetFormat.extension)
         var extractor: MediaExtractor? = null
         var decoder: MediaCodec? = null
         var encoder: MediaCodec? = null
@@ -451,8 +583,17 @@ class UniversalConverter {
                 FileFormat.WEBM -> "video/x-vnd.on2.vp8" to MediaMuxer.OutputFormat.MUXER_OUTPUT_WEBM
                 else -> throw IOException("Transcoding to ${targetFormat.displayName} is not supported on this device")
             }
+            val outWidth: Int
+            val outHeight: Int
+            if (toolOptions.rotationDegrees == 90 || toolOptions.rotationDegrees == 270) {
+                outWidth = height
+                outHeight = width
+            } else {
+                outWidth = width
+                outHeight = height
+            }
             val codecList = MediaCodecList(MediaCodecList.ALL_CODECS)
-            val encoderName = codecList.findEncoderForFormat(MediaFormat.createVideoFormat(targetMime, width, height))
+            val encoderName = codecList.findEncoderForFormat(MediaFormat.createVideoFormat(targetMime, outWidth, outHeight))
                 ?: throw IOException("No encoder found for target codec: $targetMime")
 
             val videoBitRate = when (quality) {
@@ -460,7 +601,7 @@ class UniversalConverter {
                 QualityPreset.MEDIUM -> 4_000_000
                 QualityPreset.HIGH -> 8_000_000
             }
-            val encoderFormat = MediaFormat.createVideoFormat(targetMime, width, height)
+            val encoderFormat = MediaFormat.createVideoFormat(targetMime, outWidth, outHeight)
             encoderFormat.setInteger(MediaFormat.KEY_BIT_RATE, videoBitRate)
             encoderFormat.setInteger(MediaFormat.KEY_FRAME_RATE, 30)
             encoderFormat.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1)
@@ -472,6 +613,7 @@ class UniversalConverter {
             muxer = MediaMuxer(outputFile.absolutePath, muxerFormat)
             var outputVideoTrackIndex = -1
             var outputAudioTrackIndex = -1
+            var webmAudioNeedsFfmpegMux = false
             if (audioSamples.isNotEmpty() && audioFormat != null) {
                 val audioMime = audioFormat.getString(MediaFormat.KEY_MIME) ?: ""
                 val addAudio = when (muxerFormat) {
@@ -485,6 +627,8 @@ class UniversalConverter {
                     } catch (_: Exception) {
                         outputAudioTrackIndex = -1
                     }
+                } else if (muxerFormat == MediaMuxer.OutputFormat.MUXER_OUTPUT_WEBM && audioMime.startsWith("audio/")) {
+                    webmAudioNeedsFfmpegMux = true
                 }
             }
             var muxerStarted = false
@@ -533,15 +677,33 @@ class UniversalConverter {
                                 val encoderInputBuffer = encoder.getInputBuffer(encoderInputBufferIndex)
                                 if (encoderInputBuffer != null) {
                                     encoderInputBuffer.clear()
-                                    if (toolOptions.hasFlip) {
-                                        val frameData = ByteArray(bufferInfo.size)
-                                        decoderOutputBuffer.get(frameData)
-                                        flipFrameNV12(frameData, width, height, toolOptions.flipHorizontal, toolOptions.flipVertical)
-                                        encoderInputBuffer.put(frameData)
-                                    } else {
-                                        encoderInputBuffer.put(decoderOutputBuffer)
+                                    when {
+                                        toolOptions.rotationDegrees == 90 || toolOptions.rotationDegrees == 270 -> {
+                                            val frameData = ByteArray(bufferInfo.size)
+                                            decoderOutputBuffer.get(frameData)
+                                            val rotated = rotateFrameNV12(frameData, width, height, toolOptions.rotationDegrees)
+                                            encoderInputBuffer.put(rotated)
+                                            encoder.queueInputBuffer(encoderInputBufferIndex, 0, rotated.size, adjustedPTS, bufferInfo.flags)
+                                        }
+                                        toolOptions.rotationDegrees == 180 -> {
+                                            val frameData = ByteArray(bufferInfo.size)
+                                            decoderOutputBuffer.get(frameData)
+                                            val rotated = rotateFrameNV12(frameData, width, height, 180)
+                                            encoderInputBuffer.put(rotated)
+                                            encoder.queueInputBuffer(encoderInputBufferIndex, 0, rotated.size, adjustedPTS, bufferInfo.flags)
+                                        }
+                                        toolOptions.hasFlip -> {
+                                            val frameData = ByteArray(bufferInfo.size)
+                                            decoderOutputBuffer.get(frameData)
+                                            flipFrameNV12(frameData, width, height, toolOptions.flipHorizontal, toolOptions.flipVertical)
+                                            encoderInputBuffer.put(frameData)
+                                            encoder.queueInputBuffer(encoderInputBufferIndex, 0, bufferInfo.size, adjustedPTS, bufferInfo.flags)
+                                        }
+                                        else -> {
+                                            encoderInputBuffer.put(decoderOutputBuffer)
+                                            encoder.queueInputBuffer(encoderInputBufferIndex, 0, bufferInfo.size, adjustedPTS, bufferInfo.flags)
+                                        }
                                     }
-                                    encoder.queueInputBuffer(encoderInputBufferIndex, 0, bufferInfo.size, adjustedPTS, bufferInfo.flags)
                                 }
                             }
                         }
@@ -563,8 +725,9 @@ class UniversalConverter {
                     if (encodedData != null && bufferInfo.size != 0) {
                         if (!muxerStarted) {
                             outputVideoTrackIndex = muxer.addTrack(encoder.outputFormat)
-                            if (sourceRotation != 0) {
-                                muxer.setOrientationHint(sourceRotation)
+                            val muxerOrientation = if (toolOptions.hasRotation) 0 else sourceRotation
+                            if (muxerOrientation != 0) {
+                                muxer.setOrientationHint(muxerOrientation)
                             }
                             muxer.start()
                             muxerStarted = true
@@ -604,6 +767,24 @@ class UniversalConverter {
                 }
             }
             progressCallback(1.0f)
+            if (webmAudioNeedsFfmpegMux) {
+                val withAudio = File(
+                    context.cacheDir,
+                    "${sourceFile.nameWithoutExtension}_webm.${targetFormat.extension}"
+                )
+                try {
+                    ab.inque.converter.pipeline.FfmpegVideoExporter.muxWebmWithAudio(
+                        videoOnly = outputFile,
+                        audioSource = sourceFile,
+                        output = withAudio,
+                        toolOptions = toolOptions
+                    ) { p -> progressCallback(0.95f + 0.05f * p) }
+                    outputFile.delete()
+                    return withAudio
+                } catch (e: Exception) {
+                    android.util.Log.w("VideoConverter", "WEBM audio mux via FFmpeg failed: ${e.message}")
+                }
+            }
             return outputFile
         } catch (e: Exception) {
             android.util.Log.e("VideoConverter", "Error transcoding video: ${e.message}")
@@ -615,6 +796,80 @@ class UniversalConverter {
             try { muxer?.stop(); muxer?.release() } catch (_: Exception) {}
             try { extractor?.release() } catch (_: Exception) {}
         }
+    }
+
+    /**
+     * Rotate NV12 (YUV420 semi-planar) by 90°, 180°, or 270°. Returns new buffer.
+     * 90° CW: out[y][x] = in[height-1-x][y]. 270° CW: out[y][x] = in[x][width-1-y].
+     */
+    private fun rotateFrameNV12(data: ByteArray, width: Int, height: Int, degrees: Int): ByteArray {
+        val ySize = width * height
+        val out = ByteArray(height * width * 3 / 2)
+        when (degrees) {
+            180 -> {
+                for (y in 0 until height) {
+                    for (x in 0 until width) {
+                        val srcY = y * width + x
+                        val dstY = (height - 1 - y) * width + (width - 1 - x)
+                        out[dstY] = data[srcY]
+                    }
+                }
+                val uvH = height / 2
+                val uvW = width / 2
+                for (v in 0 until uvH) {
+                    for (u in 0 until uvW) {
+                        val srcOff = ySize + v * width + u * 2
+                        val dstOff = ySize + (uvH - 1 - v) * width + (uvW - 1 - u) * 2
+                        out[dstOff] = data[srcOff]
+                        out[dstOff + 1] = data[srcOff + 1]
+                    }
+                }
+            }
+            90 -> {
+                val outWidth = height
+                val outHeight = width
+                for (y in 0 until height) {
+                    for (x in 0 until width) {
+                        val srcY = y * width + x
+                        val dstY = (width - 1 - x) * height + y
+                        out[dstY] = data[srcY]
+                    }
+                }
+                val uvW = width / 2
+                val uvH = height / 2
+                for (v in 0 until uvH) {
+                    for (u in 0 until uvW) {
+                        val srcOff = ySize + v * width + (width - 2 - u * 2)
+                        val dstOff = ySize + v * outWidth + u * 2
+                        out[dstOff] = data[srcOff]
+                        out[dstOff + 1] = data[srcOff + 1]
+                    }
+                }
+            }
+            270 -> {
+                val outWidth = height
+                val outHeight = width
+                for (y in 0 until height) {
+                    for (x in 0 until width) {
+                        val srcY = y * width + x
+                        val dstY = x * height + (height - 1 - y)
+                        out[dstY] = data[srcY]
+                    }
+                }
+                val uvW = width / 2
+                val uvH = height / 2
+                for (v in 0 until uvH) {
+                    for (u in 0 until uvW) {
+                        val srcOff = ySize + (uvH - 1 - v) * width + u * 2
+                        val dstOff = ySize + u * outWidth + v * 2
+                        out[dstOff] = data[srcOff]
+                        out[dstOff + 1] = data[srcOff + 1]
+                    }
+                }
+            }
+            else -> return data
+        }
+        return out
     }
 
     /**
@@ -676,6 +931,19 @@ class UniversalConverter {
         val outputFile = File(context.cacheDir, "${sourceFile.nameWithoutExtension}_edit.${targetFormat.extension}")
         progressCallback(0.05f)
 
+        if (targetFormat == FileFormat.MKV) {
+            val mp4Out = remuxWithTools(
+                sourceFile, FileFormat.MP4, context, { p -> progressCallback(p * 0.85f) }, toolOptions
+            )
+            try {
+                return ab.inque.converter.pipeline.FfmpegVideoExporter.remuxToMkv(
+                    mp4Out, outputFile
+                ) { p -> progressCallback(0.85f + 0.15f * p) }
+            } finally {
+                mp4Out.delete()
+            }
+        }
+
         val muxerFormat = when (targetFormat) {
             FileFormat.MP4, FileFormat.MOV, FileFormat.M4A, FileFormat.THREEGP -> MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4
             FileFormat.WEBM -> MediaMuxer.OutputFormat.MUXER_OUTPUT_WEBM
@@ -689,13 +957,20 @@ class UniversalConverter {
             muxer = MediaMuxer(outputFile.absolutePath, muxerFormat)
 
             val trackMap = mutableMapOf<Int, Int>()
+            var orientationHint = 0
             for (i in 0 until extractor.trackCount) {
                 val fmt = extractor.getTrackFormat(i)
                 val mime = fmt.getString(MediaFormat.KEY_MIME) ?: continue
                 if (mime.startsWith("video/") || mime.startsWith("audio/")) {
+                    if (mime.startsWith("video/") && fmt.containsKey(MediaFormat.KEY_ROTATION)) {
+                        orientationHint = fmt.getInteger(MediaFormat.KEY_ROTATION)
+                    }
                     extractor.selectTrack(i)
                     trackMap[i] = muxer.addTrack(fmt)
                 }
+            }
+            if (orientationHint != 0) {
+                muxer.setOrientationHint(orientationHint)
             }
             muxer.start()
 
@@ -845,7 +1120,7 @@ class UniversalConverter {
             else -> throw UnsupportedOperationException("Image to PDF: unsupported format ${sourceFormat.displayName}")
         } ?: throw IOException("Failed to decode image for PDF")
         progressCallback(0.3f)
-        val orientedBitmap = applyExifOrientation(bitmap, sourceFile)
+        val orientedBitmap = applyExifOrientation(bitmap, sourceFile, sourceFormat == FileFormat.HEIC)
         if (orientedBitmap != bitmap) bitmap.recycle()
         val scaledBitmap = if (scale != null && scale > 0f && scale != 1.0f) {
             val w = (orientedBitmap.width * scale).toInt().coerceAtLeast(1)
@@ -856,13 +1131,19 @@ class UniversalConverter {
         val outputFile = File(context.cacheDir, "${sourceFile.nameWithoutExtension}.pdf")
         val pdfWriter = com.itextpdf.kernel.pdf.PdfWriter(outputFile)
         val pdfDocument = com.itextpdf.kernel.pdf.PdfDocument(pdfWriter)
-        val document = com.itextpdf.layout.Document(pdfDocument)
+        val pageSize = com.itextpdf.kernel.geom.PageSize(
+            scaledBitmap.width.toFloat(),
+            scaledBitmap.height.toFloat()
+        )
+        pdfDocument.addNewPage(pageSize)
+        val document = com.itextpdf.layout.Document(pdfDocument, pageSize)
         val tempPng = File(context.cacheDir, "img_${System.currentTimeMillis()}.png")
         try {
             FileOutputStream(tempPng).use { scaledBitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
             val imageData = com.itextpdf.io.image.ImageDataFactory.create(tempPng.absolutePath)
             val image = com.itextpdf.layout.element.Image(imageData)
-            image.setAutoScaleWidth(true)
+            image.setWidth(pageSize.width)
+            image.setHeight(pageSize.height)
             document.add(image)
         } finally {
             tempPng.delete()
@@ -873,7 +1154,104 @@ class UniversalConverter {
         progressCallback(1.0f)
         return outputFile
     }
-    
+
+    /** Video → PDF: every frame in the video cutout (trim range) as one page each. */
+    private fun convertVideoToPdf(
+        sourceFile: File,
+        context: Context,
+        progressCallback: (Float) -> Unit,
+        toolOptions: MediaToolOptions = MediaToolOptions()
+    ): File {
+        progressCallback(0.05f)
+        val retriever = MediaMetadataRetriever()
+        try {
+            retriever.setDataSource(sourceFile.absolutePath)
+            val durationMs = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
+                ?.toLongOrNull() ?: throw IOException("Cannot read video duration")
+            val fpsMeta = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_CAPTURE_FRAMERATE)
+            val fps = fpsMeta?.toFloatOrNull()?.coerceIn(1f, 120f) ?: 30f
+            val frameIntervalMs = (1000f / fps).toLong().coerceAtLeast(16) // ~60fps max step
+            var rotation = getVideoRotation(sourceFile.absolutePath)
+            if (rotation == 0 && Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2) {
+                val rotMeta = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)
+                rotation = rotMeta?.toIntOrNull()?.takeIf { it in listOf(0, 90, 180, 270) } ?: 0
+            }
+            val videoWidth = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toIntOrNull() ?: 0
+            val videoHeight = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull() ?: 0
+            if (rotation == 0 && videoWidth > 0 && videoHeight > 0) {
+                val firstFrame = retriever.getFrameAtTime(
+                    (if (toolOptions.hasTrim) toolOptions.trimStartMs else 0L) * 1000L,
+                    MediaMetadataRetriever.OPTION_CLOSEST
+                )
+                if (firstFrame != null && firstFrame.width == videoHeight && firstFrame.height == videoWidth) {
+                    rotation = 90
+                }
+                firstFrame?.recycle()
+            }
+            val displayWidth = if (rotation == 90 || rotation == 270) videoHeight else videoWidth
+            val displayHeight = if (rotation == 90 || rotation == 270) videoWidth else videoHeight
+            val startMs = if (toolOptions.hasTrim) toolOptions.trimStartMs else 0L
+            val endMs = if (toolOptions.hasTrim) toolOptions.trimEndMs.coerceAtMost(durationMs) else durationMs
+            val effectiveDurationMs = (endMs - startMs).coerceAtLeast(1)
+            progressCallback(0.1f)
+
+            val outputFile = File(context.cacheDir, "${sourceFile.nameWithoutExtension}.pdf")
+            val pdfWriter = com.itextpdf.kernel.pdf.PdfWriter(outputFile)
+            val pdfDocument = com.itextpdf.kernel.pdf.PdfDocument(pdfWriter)
+            val pageSize = if (displayWidth > displayHeight) {
+                com.itextpdf.kernel.geom.PageSize.A4.rotate()
+            } else {
+                com.itextpdf.kernel.geom.PageSize.A4
+            }
+            pdfDocument.setDefaultPageSize(pageSize)
+            val document = com.itextpdf.layout.Document(pdfDocument)
+            val tempPng = File(context.cacheDir, "video_frame_pdf_${System.currentTimeMillis()}.png")
+            var frameCount = 0
+            try {
+                var timeMs = startMs
+                while (timeMs <= endMs) {
+                    val bitmap = retriever.getFrameAtTime(
+                        timeMs * 1000L,
+                        MediaMetadataRetriever.OPTION_CLOSEST
+                    )
+                    if (bitmap != null) {
+                        var oriented = rotateBitmap(bitmap, rotation)
+                        if (oriented !== bitmap) bitmap.recycle()
+                        if (toolOptions.hasRotation) {
+                            val userRotated = rotateBitmap(oriented, toolOptions.rotationDegrees)
+                            if (userRotated !== oriented) oriented.recycle()
+                            oriented = userRotated
+                        }
+                        val pageW = 595
+                        val pageH = 842
+                        val toExport = scaleBitmapToFitInside(oriented, pageW, pageH)
+                        if (toExport !== oriented) oriented.recycle()
+                        FileOutputStream(tempPng).use { toExport.compress(Bitmap.CompressFormat.PNG, 100, it) }
+                        toExport.recycle()
+                        val imageData = com.itextpdf.io.image.ImageDataFactory.create(tempPng.absolutePath)
+                        val image = com.itextpdf.layout.element.Image(imageData)
+                        image.setAutoScaleWidth(true)
+                        document.add(image)
+                        if (timeMs + frameIntervalMs <= endMs) {
+                            document.add(com.itextpdf.layout.element.AreaBreak(com.itextpdf.layout.properties.AreaBreakType.NEXT_PAGE))
+                        }
+                        frameCount++
+                    }
+                    timeMs += frameIntervalMs
+                    val p = 0.1f + 0.85f * (timeMs - startMs).toFloat() / effectiveDurationMs
+                    progressCallback(p.coerceAtMost(0.95f))
+                }
+            } finally {
+                tempPng.delete()
+            }
+            document.close()
+            progressCallback(1.0f)
+            return outputFile
+        } finally {
+            retriever.release()
+        }
+    }
+
     /** Multiple images → one PDF (one page per image, in order). */
     fun convertImagesToPdf(
         imageFiles: List<File>,
@@ -905,14 +1283,20 @@ class UniversalConverter {
                     }
                     else -> throw UnsupportedOperationException("Unsupported image format: ${sourceFormat.displayName}")
                 } ?: throw IOException("Failed to decode: ${sourceFile.name}")
-                val oriented = applyExifOrientation(bitmap, sourceFile)
+                val oriented = applyExifOrientation(bitmap, sourceFile, sourceFormat == FileFormat.HEIC)
                 if (oriented != bitmap) bitmap.recycle()
                 FileOutputStream(tempPng).use { oriented.compress(Bitmap.CompressFormat.PNG, 100, it) }
-                oriented.recycle()
                 val imageData = com.itextpdf.io.image.ImageDataFactory.create(tempPng.absolutePath)
+                val pageSize = com.itextpdf.kernel.geom.PageSize(
+                    oriented.width.toFloat(),
+                    oriented.height.toFloat()
+                )
+                pdfDocument.addNewPage(pageSize)
                 val image = com.itextpdf.layout.element.Image(imageData)
-                image.setAutoScaleWidth(true)
+                image.setWidth(pageSize.width)
+                image.setHeight(pageSize.height)
                 document.add(image)
+                oriented.recycle()
                 if (index < total - 1) {
                     document.add(com.itextpdf.layout.element.AreaBreak(com.itextpdf.layout.properties.AreaBreakType.NEXT_PAGE))
                 }
@@ -926,7 +1310,7 @@ class UniversalConverter {
         return outputFile
     }
     
-    /** Extract audio track from video. WAV = full decode to PCM; M4A = fast lossless remux. */
+    /** Extract audio track from video. WAV = decode to PCM; M4A = remux; MP3/FLAC = decode then encode. */
     private fun extractAudioFromVideo(
         sourceFile: File,
         sourceFormat: FileFormat,
@@ -939,6 +1323,37 @@ class UniversalConverter {
         return when (targetFormat) {
             FileFormat.WAV -> extractVideoToWav(sourceFile, outputFile, progressCallback, toolOptions)
             FileFormat.M4A -> remuxAudioToM4a(sourceFile, outputFile, progressCallback, toolOptions)
+            FileFormat.MP3 -> {
+                val wavFile = File(context.cacheDir, "video2mp3_${System.currentTimeMillis()}.wav")
+                try {
+                    extractVideoToWav(sourceFile, wavFile, { p -> progressCallback(p * 0.5f) }, toolOptions)
+                    encodeAudioToMp3(wavFile, outputFile, QualityPreset.MEDIUM, { p -> progressCallback(0.5f + p * 0.5f) })
+                } finally {
+                    wavFile.delete()
+                }
+            }
+            FileFormat.FLAC -> {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    val wavFile = File(context.cacheDir, "video2flac_${System.currentTimeMillis()}.wav")
+                    try {
+                        extractVideoToWav(sourceFile, wavFile, { p -> progressCallback(p * 0.5f) }, toolOptions)
+                        encodeAudioToFlac(wavFile, outputFile, { p -> progressCallback(0.5f + p * 0.5f) })
+                    } finally {
+                        wavFile.delete()
+                    }
+                } else throw UnsupportedOperationException("FLAC encoding requires Android 10 or later")
+            }
+            FileFormat.OGG -> {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    val wavFile = File(context.cacheDir, "video2ogg_${System.currentTimeMillis()}.wav")
+                    try {
+                        extractVideoToWav(sourceFile, wavFile, { p -> progressCallback(p * 0.5f) }, toolOptions)
+                        encodeAudioToOgg(wavFile, outputFile, QualityPreset.MEDIUM, { p -> progressCallback(0.5f + p * 0.5f) })
+                    } finally {
+                        wavFile.delete()
+                    }
+                } else throw UnsupportedOperationException("OGG (Opus) encoding requires Android 10 or later")
+            }
             else -> throw UnsupportedOperationException("Video to ${targetFormat.displayName} audio extraction is not supported")
         }
     }
@@ -1157,6 +1572,470 @@ class UniversalConverter {
         }
     }
     
+    // ── Document → Audio (text-to-speech) ───────────────────────────────
+
+    /**
+     * Converts a text document to spoken-word audio using the device's TextToSpeech engine.
+     * The document text is extracted, synthesized to a WAV via the system TTS engine, then
+     * encoded to the requested audio format with the existing audio encoders.
+     */
+    private fun convertDocumentToAudio(
+        sourceFile: File,
+        sourceFormat: FileFormat,
+        targetFormat: FileFormat,
+        context: Context,
+        progressCallback: (Float) -> Unit
+    ): File {
+        progressCallback(0.02f)
+        val text = extractPlainText(sourceFile, sourceFormat, context).trim()
+        if (text.isBlank()) {
+            throw IOException("No readable text found in the ${sourceFormat.displayName} to convert to audio")
+        }
+        progressCallback(0.08f)
+
+        val wavFile = synthesizeTextToWav(text, context) { p -> progressCallback(0.08f + 0.72f * p) }
+        try {
+            progressCallback(0.82f)
+            if (targetFormat == FileFormat.WAV) {
+                val out = File(context.cacheDir, "${sourceFile.nameWithoutExtension}.wav")
+                wavFile.copyTo(out, overwrite = true)
+                progressCallback(1.0f)
+                return out
+            }
+            val out = File(context.cacheDir, "${sourceFile.nameWithoutExtension}.${targetFormat.extension}")
+            val encProgress: (Float) -> Unit = { p -> progressCallback((0.82f + 0.18f * p).coerceAtMost(1.0f)) }
+            return when (targetFormat) {
+                FileFormat.MP3 -> encodeAudioToMp3(wavFile, out, QualityPreset.MEDIUM, encProgress)
+                FileFormat.M4A -> encodeAudioToM4a(wavFile, out, QualityPreset.MEDIUM, encProgress)
+                FileFormat.FLAC -> {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) encodeAudioToFlac(wavFile, out, encProgress)
+                    else throw UnsupportedOperationException("FLAC encoding requires Android 10 or later")
+                }
+                FileFormat.OGG -> {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) encodeAudioToOgg(wavFile, out, QualityPreset.MEDIUM, encProgress)
+                    else throw UnsupportedOperationException("OGG (Opus) encoding requires Android 10 or later")
+                }
+                else -> throw UnsupportedOperationException("Text to ${targetFormat.displayName} audio is not supported")
+            }
+        } finally {
+            wavFile.delete()
+        }
+    }
+
+    /** Extracts plain text from any supported document format. */
+    private fun extractPlainText(sourceFile: File, sourceFormat: FileFormat, context: Context): String {
+        return when (sourceFormat) {
+            FileFormat.TXT -> sourceFile.readText()
+            FileFormat.RTF -> stripRtf(sourceFile.readText())
+            FileFormat.HTML -> Jsoup.parse(sourceFile.readText()).text()
+            FileFormat.PDF -> {
+                val f = PdfConverter().convertPdfToText(sourceFile, context)
+                try { f.readText() } finally { f.delete() }
+            }
+            FileFormat.DOCX -> {
+                val f = DocxConverter().convertDocxToText(sourceFile, context)
+                try { f.readText() } finally { f.delete() }
+            }
+            FileFormat.EPUB -> {
+                val f = EpubConverter().convertEpubToText(sourceFile, context)
+                try { f.readText() } finally { f.delete() }
+            }
+            else -> throw UnsupportedOperationException("Cannot read text from ${sourceFormat.displayName}")
+        }
+    }
+
+    /**
+     * Synthesizes [text] to a single WAV file using the system TextToSpeech engine.
+     * Long text is split into engine-sized chunks, each synthesized to a part file, then the
+     * PCM is concatenated into one WAV. Runs on the calling (worker) thread and blocks on the
+     * asynchronous TTS callbacks via latches.
+     */
+    private fun synthesizeTextToWav(
+        text: String,
+        context: Context,
+        progressCallback: (Float) -> Unit
+    ): File {
+        val initLatch = CountDownLatch(1)
+        val initStatus = AtomicInteger(TextToSpeech.ERROR)
+        lateinit var tts: TextToSpeech
+        tts = TextToSpeech(context.applicationContext) { status ->
+            initStatus.set(status)
+            initLatch.countDown()
+        }
+        if (!initLatch.await(15, TimeUnit.SECONDS) || initStatus.get() != TextToSpeech.SUCCESS) {
+            try { tts.shutdown() } catch (_: Exception) {}
+            throw IOException("Text-to-speech is not available on this device")
+        }
+        tts.setSpeechRate(ConversionPrefs.getTtsSpeechRate(context))
+        ConversionPrefs.getTtsVoiceName(context)?.let { saved ->
+            tts.voices?.find { it.name == saved }?.let { tts.voice = it }
+        }
+
+        val partFiles = mutableListOf<File>()
+        try {
+            val maxLen = TextToSpeech.getMaxSpeechInputLength().coerceIn(500, 3900)
+            val chunks = splitTextForTts(text, maxLen)
+            for ((index, chunk) in chunks.withIndex()) {
+                val partFile = File(context.cacheDir, "tts_part_${System.currentTimeMillis()}_$index.wav")
+                val doneLatch = CountDownLatch(1)
+                val success = AtomicBoolean(false)
+                val utteranceId = "umc_tts_$index"
+                tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                    override fun onStart(utteranceId: String?) {}
+                    override fun onDone(id: String?) {
+                        success.set(true)
+                        doneLatch.countDown()
+                    }
+                    @Deprecated("Deprecated in API 21", ReplaceWith(""))
+                    override fun onError(utteranceId: String?) {
+                        doneLatch.countDown()
+                    }
+                    override fun onError(utteranceId: String?, errorCode: Int) {
+                        doneLatch.countDown()
+                    }
+                })
+                val params = Bundle().apply {
+                    putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, utteranceId)
+                }
+                val queued = tts.synthesizeToFile(chunk, params, partFile, utteranceId)
+                if (queued != TextToSpeech.SUCCESS) {
+                    throw IOException("Text-to-speech failed to start synthesis")
+                }
+                if (!doneLatch.await(180, TimeUnit.SECONDS) || !success.get()
+                    || !partFile.exists() || partFile.length() <= 44L
+                ) {
+                    throw IOException("Text-to-speech synthesis failed")
+                }
+                partFiles.add(partFile)
+                progressCallback(((index + 1).toFloat() / chunks.size).coerceAtMost(1.0f))
+            }
+            return mergeWavFiles(partFiles, context)
+        } finally {
+            try { tts.stop() } catch (_: Exception) {}
+            try { tts.shutdown() } catch (_: Exception) {}
+            partFiles.forEach { it.delete() }
+        }
+    }
+
+    /** Splits text into whitespace-aligned chunks no longer than [maxLen], hard-splitting oversized tokens. */
+    private fun splitTextForTts(text: String, maxLen: Int): List<String> {
+        val safeMax = maxLen.coerceAtLeast(100)
+        if (text.length <= safeMax) return listOf(text)
+        val parts = mutableListOf<String>()
+        val current = StringBuilder()
+        fun flush() {
+            if (current.isNotEmpty()) {
+                parts.add(current.toString())
+                current.setLength(0)
+            }
+        }
+        for (rawWord in text.split(Regex("\\s+"))) {
+            if (rawWord.isEmpty()) continue
+            var word = rawWord
+            while (word.length > safeMax) {
+                flush()
+                parts.add(word.substring(0, safeMax))
+                word = word.substring(safeMax)
+            }
+            if (word.isEmpty()) continue
+            if (current.isNotEmpty() && current.length + 1 + word.length > safeMax) flush()
+            if (current.isNotEmpty()) current.append(' ')
+            current.append(word)
+        }
+        flush()
+        return if (parts.isEmpty()) listOf(text.take(safeMax)) else parts
+    }
+
+    /** Concatenates the PCM of several WAV files (assumed identical format) into one WAV. */
+    private fun mergeWavFiles(wavFiles: List<File>, context: Context): File {
+        if (wavFiles.isEmpty()) throw IOException("No audio was produced")
+        val output = File(context.cacheDir, "tts_merged_${System.currentTimeMillis()}.wav")
+        if (wavFiles.size == 1) {
+            wavFiles[0].copyTo(output, overwrite = true)
+            return output
+        }
+        var sampleRate = 22050
+        var channels = 1
+        val pcm = ByteArrayOutputStream()
+        for (f in wavFiles) {
+            val wav = readWav(f)
+            sampleRate = wav.sampleRate
+            channels = wav.channels
+            pcm.write(wav.pcm)
+        }
+        writeWavFile(output, pcm.toByteArray(), sampleRate, channels)
+        return output
+    }
+
+    private data class WavInfo(val sampleRate: Int, val channels: Int, val pcm: ByteArray)
+
+    /** Minimal RIFF/WAVE parser: reads the fmt header and the raw PCM in the data chunk. */
+    private fun readWav(file: File): WavInfo {
+        val bytes = file.readBytes()
+        fun le16(o: Int) = (bytes[o].toInt() and 0xff) or ((bytes[o + 1].toInt() and 0xff) shl 8)
+        fun le32(o: Int) = (bytes[o].toInt() and 0xff) or ((bytes[o + 1].toInt() and 0xff) shl 8) or
+            ((bytes[o + 2].toInt() and 0xff) shl 16) or ((bytes[o + 3].toInt() and 0xff) shl 24)
+        var sampleRate = 22050
+        var channels = 1
+        var pcm = ByteArray(0)
+        if (bytes.size < 12) return WavInfo(sampleRate, channels, pcm)
+        var pos = 12 // skip "RIFF" <size> "WAVE"
+        while (pos + 8 <= bytes.size) {
+            val id = String(bytes, pos, 4, Charsets.US_ASCII)
+            val size = le32(pos + 4)
+            val body = pos + 8
+            if (size < 0 || body > bytes.size) break
+            when (id) {
+                "fmt " -> {
+                    if (body + 16 <= bytes.size) {
+                        channels = le16(body + 2).coerceAtLeast(1)
+                        sampleRate = le32(body + 4).coerceAtLeast(8000)
+                    }
+                }
+                "data" -> {
+                    val len = size.coerceAtMost(bytes.size - body)
+                    if (len > 0) pcm = bytes.copyOfRange(body, body + len)
+                }
+            }
+            pos = body + size + (size and 1) // chunks are word-aligned
+        }
+        return WavInfo(sampleRate, channels, pcm)
+    }
+
+    // ── Audio → Document (speech-to-text) ───────────────────────────────
+
+    /**
+     * Transcribes an audio file to text using on-device speech recognition, then writes the
+     * transcript into the requested document format using the existing text→document converters.
+     */
+    private fun convertAudioToDocument(
+        sourceFile: File,
+        sourceFormat: FileFormat,
+        targetFormat: FileFormat,
+        context: Context,
+        progressCallback: (Float) -> Unit
+    ): File {
+        progressCallback(0.02f)
+        val transcript = transcribeAudioToText(sourceFile, context) { p -> progressCallback(0.02f + 0.72f * p) }
+            .trim()
+            .ifBlank { "[No speech was detected in the audio.]" }
+        progressCallback(0.76f)
+
+        val txtFile = File(context.cacheDir, "${sourceFile.nameWithoutExtension}.txt")
+        txtFile.writeText(transcript)
+        if (targetFormat == FileFormat.TXT) {
+            progressCallback(1.0f)
+            return txtFile
+        }
+        try {
+            val docProgress: (Float) -> Unit = { p -> progressCallback((0.76f + 0.24f * p).coerceAtMost(1.0f)) }
+            return when (targetFormat) {
+                FileFormat.PDF -> convertTxtToPdf(txtFile, context, docProgress)
+                FileFormat.DOCX -> convertTxtToDocx(txtFile, context, docProgress)
+                FileFormat.RTF -> convertTxtToRtf(txtFile, context, docProgress)
+                FileFormat.EPUB -> convertTxtToEpub(txtFile, context, docProgress)
+                FileFormat.HTML -> convertTxtToHtml(txtFile, context, docProgress)
+                else -> throw UnsupportedOperationException("Audio to ${targetFormat.displayName} is not supported")
+            }
+        } finally {
+            txtFile.delete()
+        }
+    }
+
+    /**
+     * Runs the device's on-device speech recognizer over an audio file and returns the transcript.
+     * Requires Android 13 (API 33)+ (segmented-session file recognition) and the RECORD_AUDIO permission.
+     * The audio is first decoded to 16 kHz mono 16-bit PCM (the format speech engines expect).
+     */
+    @android.annotation.SuppressLint("NewApi")
+    private fun transcribeAudioToText(
+        sourceFile: File,
+        context: Context,
+        progressCallback: (Float) -> Unit
+    ): String {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            throw UnsupportedOperationException("Audio transcription requires Android 13 or later")
+        }
+        if (context.checkSelfPermission(android.Manifest.permission.RECORD_AUDIO)
+            != android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            throw IOException("Microphone permission is required to transcribe audio")
+        }
+        if (!SpeechRecognizer.isOnDeviceRecognitionAvailable(context)) {
+            throw IOException("On-device speech recognition is not available on this device")
+        }
+        progressCallback(0.05f)
+
+        val sampleRate = 16_000
+        val wavFile = decodeAudioToMonoWav(sourceFile, context, sampleRate)
+        var pfd: ParcelFileDescriptor? = null
+        try {
+            progressCallback(0.4f)
+            // Rough audio duration (seconds) used to size the wait timeout for long files.
+            val pcmBytes = (wavFile.length() - 44L).coerceAtLeast(0L)
+            val durationSec = pcmBytes.toDouble() / (sampleRate * 2)
+            val timeoutMs = (durationSec * 3000L).toLong().coerceIn(60_000L, 1_800_000L)
+
+            pfd = ParcelFileDescriptor.open(wavFile, ParcelFileDescriptor.MODE_READ_ONLY)
+            val transcript = StringBuilder()
+            val done = CountDownLatch(1)
+            val errorCode = AtomicInteger(-1)
+            val mainHandler = Handler(Looper.getMainLooper())
+            val recognizerRef = java.util.concurrent.atomic.AtomicReference<SpeechRecognizer?>()
+
+            fun appendResults(results: Bundle?) {
+                val list = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                val best = list?.firstOrNull()?.trim()
+                if (!best.isNullOrEmpty()) {
+                    synchronized(transcript) {
+                        if (transcript.isNotEmpty()) transcript.append(' ')
+                        transcript.append(best)
+                    }
+                }
+            }
+
+            mainHandler.post {
+                val recognizer = SpeechRecognizer.createOnDeviceSpeechRecognizer(context)
+                recognizerRef.set(recognizer)
+                val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                    putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                    putExtra(RecognizerIntent.EXTRA_SEGMENTED_SESSION, RecognizerIntent.EXTRA_AUDIO_SOURCE)
+                    putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE, pfd)
+                    putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE_ENCODING, AudioFormat.ENCODING_PCM_16BIT)
+                    putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE_SAMPLING_RATE, sampleRate)
+                    putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE_CHANNEL_COUNT, 1)
+                }
+                recognizer.setRecognitionListener(object : RecognitionListener {
+                    override fun onReadyForSpeech(params: Bundle?) {}
+                    override fun onBeginningOfSpeech() {}
+                    override fun onRmsChanged(rmsdB: Float) {}
+                    override fun onBufferReceived(buffer: ByteArray?) {}
+                    override fun onEndOfSpeech() {}
+                    override fun onError(error: Int) {
+                        errorCode.set(error)
+                        done.countDown()
+                    }
+                    override fun onResults(results: Bundle?) {
+                        appendResults(results)
+                    }
+                    override fun onPartialResults(partialResults: Bundle?) {}
+                    override fun onSegmentResults(segmentResults: Bundle) {
+                        appendResults(segmentResults)
+                    }
+                    override fun onEndOfSegmentedSession() {
+                        done.countDown()
+                    }
+                    override fun onEvent(eventType: Int, params: Bundle?) {}
+                })
+                recognizer.startListening(intent)
+            }
+
+            val finished = done.await(timeoutMs, TimeUnit.MILLISECONDS)
+            mainHandler.post {
+                try { recognizerRef.get()?.destroy() } catch (_: Exception) {}
+            }
+            progressCallback(0.95f)
+
+            val text = synchronized(transcript) { transcript.toString() }
+            // Only surface an error if nothing at all was transcribed.
+            if (text.isBlank()) {
+                val code = errorCode.get()
+                if (!finished) throw IOException("Speech recognition timed out")
+                if (code != -1) throw IOException("Speech recognition failed (error $code)")
+            }
+            return text
+        } finally {
+            try { pfd?.close() } catch (_: Exception) {}
+            wavFile.delete()
+        }
+    }
+
+    /** Decodes any audio file to a 16-bit PCM WAV at [targetRate] Hz, mono. */
+    private fun decodeAudioToMonoWav(sourceFile: File, context: Context, targetRate: Int): File {
+        var sampleRate = 44100
+        var channelCount = 2
+        val pcmData: ByteArray
+        var extractor: MediaExtractor? = null
+        var decoder: MediaCodec? = null
+        try {
+            extractor = MediaExtractor()
+            extractor.setDataSource(sourceFile.absolutePath)
+            var trackIndex = -1
+            var format: MediaFormat? = null
+            for (i in 0 until extractor.trackCount) {
+                val f = extractor.getTrackFormat(i)
+                if (f.getString(MediaFormat.KEY_MIME)?.startsWith("audio/") == true) {
+                    trackIndex = i; format = f; break
+                }
+            }
+            if (trackIndex == -1 || format == null) throw IOException("No audio track found")
+            extractor.selectTrack(trackIndex)
+            sampleRate = format.getInteger(MediaFormat.KEY_SAMPLE_RATE)
+            channelCount = format.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
+            decoder = MediaCodec.createDecoderByType(format.getString(MediaFormat.KEY_MIME)!!)
+            decoder.configure(format, null, null, 0)
+            decoder.start()
+            val bufInfo = MediaCodec.BufferInfo()
+            val pcmOut = ByteArrayOutputStream()
+            var sawEOS = false
+            while (!sawEOS) {
+                val inIdx = decoder.dequeueInputBuffer(10_000)
+                if (inIdx >= 0) {
+                    val inBuf = decoder.getInputBuffer(inIdx)!!
+                    val size = extractor.readSampleData(inBuf, 0)
+                    if (size < 0) {
+                        decoder.queueInputBuffer(inIdx, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
+                        sawEOS = true
+                    } else {
+                        decoder.queueInputBuffer(inIdx, 0, size, extractor.sampleTime, 0)
+                        extractor.advance()
+                    }
+                }
+                val outIdx = decoder.dequeueOutputBuffer(bufInfo, 10_000)
+                if (outIdx >= 0) {
+                    val outBuf = decoder.getOutputBuffer(outIdx)
+                    if (outBuf != null && bufInfo.size > 0) {
+                        val chunk = ByteArray(bufInfo.size)
+                        outBuf.get(chunk)
+                        pcmOut.write(chunk)
+                    }
+                    decoder.releaseOutputBuffer(outIdx, false)
+                    if ((bufInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) sawEOS = true
+                }
+            }
+            pcmData = pcmOut.toByteArray()
+        } finally {
+            try { decoder?.stop(); decoder?.release() } catch (_: Exception) {}
+            try { extractor?.release() } catch (_: Exception) {}
+        }
+
+        val mono = if (channelCount > 1) downmixToMono(pcmData, channelCount) else pcmData
+        val resampled = resamplePcm(mono, sampleRate, targetRate, 1)
+        val output = File(context.cacheDir, "stt_${System.currentTimeMillis()}.wav")
+        writeWavFile(output, resampled, targetRate, 1)
+        return output
+    }
+
+    /** Averages all channels of interleaved 16-bit PCM into a single mono channel. */
+    private fun downmixToMono(pcm: ByteArray, channels: Int): ByteArray {
+        if (channels <= 1) return pcm
+        val frameBytes = channels * 2
+        val frames = pcm.size / frameBytes
+        val out = ByteArray(frames * 2)
+        for (f in 0 until frames) {
+            var sum = 0
+            for (c in 0 until channels) {
+                val o = (f * channels + c) * 2
+                val s = ((pcm[o + 1].toInt() shl 8) or (pcm[o].toInt() and 0xff)).toShort().toInt()
+                sum += s
+            }
+            val v = (sum / channels).coerceIn(-32768, 32767)
+            out[f * 2] = (v and 0xff).toByte()
+            out[f * 2 + 1] = ((v shr 8) and 0xff).toByte()
+        }
+        return out
+    }
+
     /** Audio → Audio: any audio → WAV (decode to PCM) or → M4A (encode to AAC). */
     private fun convertAudio(
         sourceFile: File,
@@ -1169,15 +2048,74 @@ class UniversalConverter {
     ): File {
         if (targetFormat == FileFormat.M4A) {
             val outputFile = File(context.cacheDir, "${sourceFile.nameWithoutExtension}.m4a")
+            if (toolOptions.hasTrim || toolOptions.hasSpeed) {
+                val wav = File(context.cacheDir, "audio_trim_${System.currentTimeMillis()}.wav")
+                try {
+                    decodeAudioToWavWithTools(sourceFile, wav, toolOptions) { p -> progressCallback(p * 0.5f) }
+                    return encodeAudioToM4a(wav, outputFile, quality) { p -> progressCallback(0.5f + 0.5f * p) }
+                } finally {
+                    wav.delete()
+                }
+            }
             return encodeAudioToM4a(sourceFile, outputFile, quality, progressCallback)
+        }
+        if (targetFormat == FileFormat.FLAC) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val outputFile = File(context.cacheDir, "${sourceFile.nameWithoutExtension}.flac")
+                if (toolOptions.hasTrim || toolOptions.hasSpeed) {
+                    val wav = File(context.cacheDir, "audio_trim_${System.currentTimeMillis()}.wav")
+                    try {
+                        decodeAudioToWavWithTools(sourceFile, wav, toolOptions) { p -> progressCallback(p * 0.5f) }
+                        return encodeAudioToFlac(wav, outputFile) { p -> progressCallback(0.5f + 0.5f * p) }
+                    } finally {
+                        wav.delete()
+                    }
+                }
+                return encodeAudioToFlac(sourceFile, outputFile, progressCallback)
+            }
+            throw UnsupportedOperationException("FLAC encoding requires Android 10 or later")
+        }
+        if (targetFormat == FileFormat.MP3) {
+            val outputFile = File(context.cacheDir, "${sourceFile.nameWithoutExtension}.mp3")
+            if (toolOptions.hasTrim || toolOptions.hasSpeed) {
+                val wav = File(context.cacheDir, "audio_trim_${System.currentTimeMillis()}.wav")
+                try {
+                    decodeAudioToWavWithTools(sourceFile, wav, toolOptions) { p -> progressCallback(p * 0.5f) }
+                    return encodeAudioToMp3(wav, outputFile, quality) { p -> progressCallback(0.5f + 0.5f * p) }
+                } finally {
+                    wav.delete()
+                }
+            }
+            return encodeAudioToMp3(sourceFile, outputFile, quality, progressCallback)
+        }
+        if (targetFormat == FileFormat.OGG) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val outputFile = File(context.cacheDir, "${sourceFile.nameWithoutExtension}.ogg")
+                if (toolOptions.hasTrim || toolOptions.hasSpeed) {
+                    val wav = File(context.cacheDir, "audio_trim_${System.currentTimeMillis()}.wav")
+                    try {
+                        decodeAudioToWavWithTools(sourceFile, wav, toolOptions) { p -> progressCallback(p * 0.5f) }
+                        return encodeAudioToOgg(wav, outputFile, quality) { p -> progressCallback(0.5f + 0.5f * p) }
+                    } finally {
+                        wav.delete()
+                    }
+                }
+                return encodeAudioToOgg(sourceFile, outputFile, quality, progressCallback)
+            }
+            throw UnsupportedOperationException("OGG (Opus) encoding requires Android 10 or later")
         }
         if (targetFormat != FileFormat.WAV) {
             throw UnsupportedOperationException("Audio conversion to ${targetFormat.displayName} is not supported")
         }
         progressCallback(0.1f)
+        val outputFile = File(context.cacheDir, "${sourceFile.nameWithoutExtension}.wav")
+        if (toolOptions.hasTrim || toolOptions.hasSpeed) {
+            decodeAudioToWavWithTools(sourceFile, outputFile, toolOptions, progressCallback)
+            progressCallback(1f)
+            return outputFile
+        }
         var extractor: MediaExtractor? = null
         var decoder: MediaCodec? = null
-        val outputFile = File(context.cacheDir, "${sourceFile.nameWithoutExtension}.wav")
         try {
             extractor = MediaExtractor()
             extractor.setDataSource(sourceFile.absolutePath)
@@ -1408,6 +2346,374 @@ class UniversalConverter {
         }
     }
 
+    /**
+     * Encode any audio to FLAC (lossless). Requires Android 10 (API 29)+.
+     * Decode to PCM then encode via MediaCodec "audio/flac"; write raw FLAC stream to file.
+     */
+    @android.annotation.SuppressLint("NewApi")
+    private fun encodeAudioToFlac(
+        sourceFile: File,
+        outputFile: File,
+        progressCallback: (Float) -> Unit
+    ): File {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) throw IOException("FLAC requires Android 10+")
+        progressCallback(0.05f)
+        var sampleRate = 44100
+        var channelCount = 2
+        val pcmData: ByteArray
+        var extractor: MediaExtractor? = null
+        var decoder: MediaCodec? = null
+        try {
+            extractor = MediaExtractor()
+            extractor.setDataSource(sourceFile.absolutePath)
+            var trackIndex = -1
+            var format: MediaFormat? = null
+            for (i in 0 until extractor.trackCount) {
+                val f = extractor.getTrackFormat(i)
+                if (f.getString(MediaFormat.KEY_MIME)?.startsWith("audio/") == true) {
+                    trackIndex = i
+                    format = f
+                    break
+                }
+            }
+            if (trackIndex == -1 || format == null) throw IOException("No audio track found")
+            extractor.selectTrack(trackIndex)
+            sampleRate = format.getInteger(MediaFormat.KEY_SAMPLE_RATE)
+            channelCount = format.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
+            decoder = MediaCodec.createDecoderByType(format.getString(MediaFormat.KEY_MIME)!!)
+            decoder.configure(format, null, null, 0)
+            decoder.start()
+            val bufInfo = MediaCodec.BufferInfo()
+            val pcmOut = java.io.ByteArrayOutputStream()
+            var sawEOS = false
+            while (!sawEOS) {
+                val inIdx = decoder.dequeueInputBuffer(10_000)
+                if (inIdx >= 0) {
+                    val inBuf = decoder.getInputBuffer(inIdx)!!
+                    val size = extractor.readSampleData(inBuf, 0)
+                    if (size < 0) {
+                        decoder.queueInputBuffer(inIdx, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
+                        sawEOS = true
+                    } else {
+                        decoder.queueInputBuffer(inIdx, 0, size, extractor.sampleTime, 0)
+                        extractor.advance()
+                    }
+                }
+                val outIdx = decoder.dequeueOutputBuffer(bufInfo, 10_000)
+                if (outIdx >= 0) {
+                    val outBuf = decoder.getOutputBuffer(outIdx)
+                    if (outBuf != null && bufInfo.size > 0) {
+                        val chunk = ByteArray(bufInfo.size)
+                        outBuf.get(chunk)
+                        pcmOut.write(chunk)
+                    }
+                    decoder.releaseOutputBuffer(outIdx, false)
+                    if ((bufInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) sawEOS = true
+                }
+            }
+            pcmData = pcmOut.toByteArray()
+        } finally {
+            try { decoder?.stop(); decoder?.release() } catch (_: Exception) {}
+            try { extractor?.release() } catch (_: Exception) {}
+        }
+        progressCallback(0.5f)
+        var encoder: MediaCodec? = null
+        try {
+            val encFormat = MediaFormat.createAudioFormat("audio/flac", sampleRate, channelCount).apply {
+                setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, 16384)
+            }
+            encoder = MediaCodec.createEncoderByType("audio/flac")
+            encoder.configure(encFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
+            encoder.start()
+            val bufInfo = MediaCodec.BufferInfo()
+            val bytesPerSample = 2
+            val frameSize = 4096 * channelCount * bytesPerSample
+            var inputOffset = 0
+            var presentationUs = 0L
+            var encoderInputDone = false
+            var encoderDone = false
+            FileOutputStream(outputFile).use { fos ->
+                while (!encoderDone) {
+                    if (!encoderInputDone) {
+                        val inIdx = encoder.dequeueInputBuffer(10_000)
+                        if (inIdx >= 0) {
+                            val inBuf = encoder.getInputBuffer(inIdx)!!
+                            inBuf.clear()
+                            val remaining = pcmData.size - inputOffset
+                            if (remaining <= 0) {
+                                encoder.queueInputBuffer(inIdx, 0, 0, presentationUs, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
+                                encoderInputDone = true
+                            } else {
+                                val toWrite = minOf(remaining, inBuf.remaining(), frameSize)
+                                inBuf.put(pcmData, inputOffset, toWrite)
+                                encoder.queueInputBuffer(inIdx, 0, toWrite, presentationUs, 0)
+                                inputOffset += toWrite
+                                presentationUs += (toWrite / (channelCount * bytesPerSample)) * 1_000_000L / sampleRate
+                            }
+                        }
+                    }
+                    val outIdx = encoder.dequeueOutputBuffer(bufInfo, 10_000)
+                    when {
+                        outIdx == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> { }
+                        outIdx >= 0 -> {
+                            val encBuf = encoder.getOutputBuffer(outIdx)
+                            if (encBuf != null && bufInfo.size > 0) {
+                                encBuf.position(bufInfo.offset)
+                                val chunk = ByteArray(bufInfo.size)
+                                encBuf.get(chunk)
+                                fos.write(chunk)
+                            }
+                            encoder.releaseOutputBuffer(outIdx, false)
+                            if (pcmData.isNotEmpty()) {
+                                progressCallback((0.5f + 0.45f * inputOffset.toFloat() / pcmData.size).coerceAtMost(0.95f))
+                            }
+                            if ((bufInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) encoderDone = true
+                        }
+                    }
+                }
+            }
+            progressCallback(1.0f)
+            return outputFile
+        } finally {
+            try { encoder?.stop(); encoder?.release() } catch (_: Exception) {}
+        }
+    }
+
+    /**
+     * Encode any audio to OGG (Opus inside an Ogg container). Requires Android 10 (API 29)+.
+     * Decode to PCM, resample to 48 kHz (Opus only supports a fixed set of rates),
+     * encode via MediaCodec "audio/opus", and mux with [MediaMuxer.OutputFormat.MUXER_OUTPUT_OGG].
+     */
+    @android.annotation.SuppressLint("NewApi")
+    private fun encodeAudioToOgg(
+        sourceFile: File,
+        outputFile: File,
+        quality: QualityPreset,
+        progressCallback: (Float) -> Unit
+    ): File {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) throw IOException("OGG (Opus) requires Android 10+")
+        progressCallback(0.05f)
+
+        // ── Pass 1: decode source to PCM ──────────────────────────────────
+        var sampleRate = 44100
+        var channelCount = 2
+        val pcmData: ByteArray
+        var extractor: MediaExtractor? = null
+        var decoder: MediaCodec? = null
+        try {
+            extractor = MediaExtractor()
+            extractor.setDataSource(sourceFile.absolutePath)
+            var trackIndex = -1
+            var format: MediaFormat? = null
+            for (i in 0 until extractor.trackCount) {
+                val f = extractor.getTrackFormat(i)
+                if (f.getString(MediaFormat.KEY_MIME)?.startsWith("audio/") == true) {
+                    trackIndex = i; format = f; break
+                }
+            }
+            if (trackIndex == -1 || format == null) throw IOException("No audio track found")
+            extractor.selectTrack(trackIndex)
+            sampleRate = format.getInteger(MediaFormat.KEY_SAMPLE_RATE)
+            channelCount = format.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
+            decoder = MediaCodec.createDecoderByType(format.getString(MediaFormat.KEY_MIME)!!)
+            decoder.configure(format, null, null, 0)
+            decoder.start()
+            val bufInfo = MediaCodec.BufferInfo()
+            val pcmOut = java.io.ByteArrayOutputStream()
+            var sawEOS = false
+            while (!sawEOS) {
+                val inIdx = decoder.dequeueInputBuffer(10_000)
+                if (inIdx >= 0) {
+                    val inBuf = decoder.getInputBuffer(inIdx)!!
+                    val size = extractor.readSampleData(inBuf, 0)
+                    if (size < 0) {
+                        decoder.queueInputBuffer(inIdx, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
+                        sawEOS = true
+                    } else {
+                        decoder.queueInputBuffer(inIdx, 0, size, extractor.sampleTime, 0)
+                        extractor.advance()
+                    }
+                }
+                val outIdx = decoder.dequeueOutputBuffer(bufInfo, 10_000)
+                if (outIdx >= 0) {
+                    val outBuf = decoder.getOutputBuffer(outIdx)
+                    if (outBuf != null && bufInfo.size > 0) {
+                        val chunk = ByteArray(bufInfo.size)
+                        outBuf.get(chunk)
+                        pcmOut.write(chunk)
+                    }
+                    decoder.releaseOutputBuffer(outIdx, false)
+                    if ((bufInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) sawEOS = true
+                }
+            }
+            pcmData = pcmOut.toByteArray()
+        } finally {
+            try { decoder?.stop(); decoder?.release() } catch (_: Exception) {}
+            try { extractor?.release() } catch (_: Exception) {}
+        }
+
+        progressCallback(0.45f)
+
+        // Opus only encodes 1 or 2 channels at a fixed set of sample rates; use 48 kHz.
+        if (channelCount !in 1..2) throw IOException("OGG (Opus) supports mono or stereo audio only")
+        val targetRate = 48_000
+        val pcm = resamplePcm(pcmData, sampleRate, targetRate, channelCount)
+
+        progressCallback(0.5f)
+
+        // ── Pass 2: encode PCM to Opus and mux into Ogg ───────────────────
+        val bitRate = when (quality) {
+            QualityPreset.LOW -> 64_000
+            QualityPreset.MEDIUM -> 96_000
+            QualityPreset.HIGH -> 128_000
+        }
+        var encoder: MediaCodec? = null
+        var muxer: MediaMuxer? = null
+        try {
+            val encFormat = MediaFormat.createAudioFormat("audio/opus", targetRate, channelCount).apply {
+                setInteger(MediaFormat.KEY_BIT_RATE, bitRate)
+                setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, 65536)
+            }
+            encoder = MediaCodec.createEncoderByType("audio/opus")
+            encoder.configure(encFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
+            encoder.start()
+
+            muxer = MediaMuxer(outputFile.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_OGG)
+            var muxerTrack = -1
+            var muxerStarted = false
+            val bufInfo = MediaCodec.BufferInfo()
+
+            val bytesPerSample = 2
+            // Feed Opus complete 20 ms frames (48000 / 50 = 960 samples per channel).
+            val frameBytes = 960 * channelCount * bytesPerSample
+            var inputOffset = 0
+            var presentationUs = 0L
+            var encoderInputDone = false
+            var encoderDone = false
+
+            while (!encoderDone) {
+                if (!encoderInputDone) {
+                    val inIdx = encoder.dequeueInputBuffer(10_000)
+                    if (inIdx >= 0) {
+                        val inBuf = encoder.getInputBuffer(inIdx)!!
+                        inBuf.clear()
+                        val remaining = pcm.size - inputOffset
+                        if (remaining <= 0) {
+                            encoder.queueInputBuffer(inIdx, 0, 0, presentationUs, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
+                            encoderInputDone = true
+                        } else {
+                            val toWrite = minOf(remaining, inBuf.remaining(), frameBytes)
+                            inBuf.put(pcm, inputOffset, toWrite)
+                            encoder.queueInputBuffer(inIdx, 0, toWrite, presentationUs, 0)
+                            inputOffset += toWrite
+                            presentationUs += (toWrite / (channelCount * bytesPerSample)) * 1_000_000L / targetRate
+                        }
+                    }
+                }
+                val outIdx = encoder.dequeueOutputBuffer(bufInfo, 10_000)
+                when {
+                    outIdx == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
+                        if (!muxerStarted) {
+                            muxerTrack = muxer.addTrack(encoder.outputFormat)
+                            muxer.start()
+                            muxerStarted = true
+                        }
+                    }
+                    outIdx >= 0 -> {
+                        val encBuf = encoder.getOutputBuffer(outIdx)
+                        val isCodecConfig = (bufInfo.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG) != 0
+                        if (encBuf != null && bufInfo.size > 0 && muxerStarted && !isCodecConfig) {
+                            encBuf.position(bufInfo.offset)
+                            encBuf.limit(bufInfo.offset + bufInfo.size)
+                            muxer.writeSampleData(muxerTrack, encBuf, bufInfo)
+                            if (pcm.isNotEmpty()) {
+                                progressCallback(
+                                    (0.5f + 0.45f * inputOffset.toFloat() / pcm.size).coerceAtMost(0.95f)
+                                )
+                            }
+                        }
+                        encoder.releaseOutputBuffer(outIdx, false)
+                        if ((bufInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) encoderDone = true
+                    }
+                }
+            }
+            progressCallback(1.0f)
+            return outputFile
+        } finally {
+            try { encoder?.stop(); encoder?.release() } catch (_: Exception) {}
+            try { muxer?.stop(); muxer?.release() } catch (_: Exception) {}
+        }
+    }
+
+    /**
+     * Linear-interpolation resampler for interleaved signed 16-bit little-endian PCM.
+     * Returns the input untouched when [srcRate] == [dstRate].
+     */
+    private fun resamplePcm(pcm: ByteArray, srcRate: Int, dstRate: Int, channels: Int): ByteArray {
+        if (srcRate == dstRate || srcRate <= 0 || dstRate <= 0) return pcm
+        val bytesPerFrame = channels * 2
+        val srcFrames = pcm.size / bytesPerFrame
+        if (srcFrames <= 1) return pcm
+        val srcShorts = ShortArray(pcm.size / 2)
+        var b = 0
+        var s = 0
+        while (b < pcm.size - 1) {
+            srcShorts[s++] = ((pcm[b + 1].toInt() and 0xff) shl 8 or (pcm[b].toInt() and 0xff)).toShort()
+            b += 2
+        }
+        val dstFrames = (srcFrames.toLong() * dstRate / srcRate).toInt().coerceAtLeast(1)
+        val out = ByteArray(dstFrames * bytesPerFrame)
+        val ratio = srcRate.toDouble() / dstRate.toDouble()
+        for (d in 0 until dstFrames) {
+            val srcPos = d * ratio
+            val i0 = srcPos.toInt()
+            val frac = srcPos - i0
+            val i1 = (i0 + 1).coerceAtMost(srcFrames - 1)
+            for (c in 0 until channels) {
+                val v0 = srcShorts[i0 * channels + c].toInt()
+                val v1 = srcShorts[i1 * channels + c].toInt()
+                val v = (v0 + (v1 - v0) * frac).toInt().coerceIn(-32768, 32767)
+                val o = (d * channels + c) * 2
+                out[o] = (v and 0xff).toByte()
+                out[o + 1] = ((v shr 8) and 0xff).toByte()
+            }
+        }
+        return out
+    }
+
+    /**
+     * Encode any audio file to MP3 using FFmpeg (libmp3lame).
+     */
+    private fun encodeAudioToMp3(
+        sourceFile: File,
+        outputFile: File,
+        quality: QualityPreset,
+        progressCallback: (Float) -> Unit
+    ): File {
+        progressCallback(0.05f)
+        val bitrateKbps = when (quality) {
+            QualityPreset.LOW -> 96
+            QualityPreset.MEDIUM -> 128
+            QualityPreset.HIGH -> 256
+        }
+        val session = FFmpegKit.executeWithArguments(
+            arrayOf(
+                "-y",
+                "-i", sourceFile.absolutePath,
+                "-codec:a", "libmp3lame",
+                "-b:a", "${bitrateKbps}k",
+                outputFile.absolutePath
+            )
+        )
+        progressCallback(0.95f)
+        if (!ReturnCode.isSuccess(session.returnCode)) {
+            val detail = session.failStackTrace ?: session.output ?: "unknown error"
+            throw IOException("MP3 encoding failed: $detail")
+        }
+        progressCallback(1.0f)
+        return outputFile
+    }
+
     /** Returns video rotation in degrees (0, 90, 180, 270) from the first video track. */
     private fun getVideoRotation(sourcePath: String): Int {
         val extractor = MediaExtractor()
@@ -1428,11 +2734,40 @@ class UniversalConverter {
     }
 
     /** Applies rotation (0, 90, 180, 270) to bitmap; returns new bitmap if rotation != 0. */
-    private fun rotateBitmap(bitmap: Bitmap, rotationDegrees: Int): Bitmap {
-        if (rotationDegrees == 0) return bitmap
-        val matrix = android.graphics.Matrix()
-        matrix.setRotate(rotationDegrees.toFloat())
-        return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+    private fun rotateBitmap(bitmap: Bitmap, rotationDegrees: Int): Bitmap =
+        BitmapGeometryUtil.rotateBitmap(bitmap, rotationDegrees)
+
+    /** Scales bitmap to fit inside (maxW x maxH) preserving aspect ratio; returns new bitmap if scaling needed. */
+    private fun scaleBitmapToFitInside(bitmap: Bitmap, maxW: Int, maxH: Int): Bitmap {
+        if (bitmap.width <= maxW && bitmap.height <= maxH) return bitmap
+        val scale = minOf(maxW.toFloat() / bitmap.width, maxH.toFloat() / bitmap.height)
+        val w = (bitmap.width * scale).toInt().coerceAtLeast(1)
+        val h = (bitmap.height * scale).toInt().coerceAtLeast(1)
+        return Bitmap.createScaledBitmap(bitmap, w, h, true)
+    }
+
+    /**
+     * Applies source video rotation metadata plus user flip/rotate tools to a retriever frame.
+     */
+    private fun orientVideoFrame(bitmap: Bitmap, sourcePath: String, toolOptions: MediaToolOptions): Bitmap {
+        val rotation = getVideoRotation(sourcePath)
+        var result = rotateBitmap(bitmap, rotation)
+        if (result !== bitmap) bitmap.recycle()
+        if (toolOptions.hasRotation) {
+            val userRotated = rotateBitmap(result, toolOptions.rotationDegrees)
+            if (userRotated !== result) result.recycle()
+            result = userRotated
+        }
+        if (toolOptions.hasFlip) {
+            val flipped = BitmapGeometryUtil.flipBitmap(
+                result,
+                toolOptions.flipHorizontal,
+                toolOptions.flipVertical
+            )
+            if (flipped !== result) result.recycle()
+            result = flipped
+        }
+        return result
     }
 
     // ── Video → GIF ─────────────────────────────────────────────────────
@@ -1451,13 +2786,7 @@ class UniversalConverter {
             retriever.setDataSource(sourceFile.absolutePath)
             val durationMs = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
                 ?.toLongOrNull() ?: throw IOException("Cannot read video duration")
-            val videoWidth = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)
-                ?.toIntOrNull() ?: 320
-            val videoHeight = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)
-                ?.toIntOrNull() ?: 240
             val rotation = getVideoRotation(sourceFile.absolutePath)
-            val displayWidth = if (rotation == 90 || rotation == 270) videoHeight else videoWidth
-            val displayHeight = if (rotation == 90 || rotation == 270) videoWidth else videoHeight
             progressCallback(0.1f)
 
             val startMs = if (toolOptions.hasTrim) toolOptions.trimStartMs else 0L
@@ -1465,43 +2794,71 @@ class UniversalConverter {
             val effectiveDurationMs = (endMs - startMs).coerceAtLeast(1)
 
             val maxDim = 480
-            val scale = if (maxOf(displayWidth, displayHeight) > maxDim) {
-                maxDim.toFloat() / maxOf(displayWidth, displayHeight)
-            } else 1f
-            val gifWidth = (displayWidth * scale).toInt().coerceAtLeast(1)
-            val gifHeight = (displayHeight * scale).toInt().coerceAtLeast(1)
-
             val baseFps = 10f
             val frameIntervalMs = (1000f / baseFps).toLong().coerceAtLeast(33)
             val displayDelayMs = (frameIntervalMs / toolOptions.speedFactor).toInt().coerceAtLeast(20)
+
+            val firstBitmap = retriever.getFrameAtTime(
+                startMs * 1000L,
+                MediaMetadataRetriever.OPTION_CLOSEST
+            )
+            if (firstBitmap == null) throw IOException("Could not extract first video frame for GIF")
+            var firstRotated = rotateBitmap(firstBitmap, rotation)
+            if (firstRotated !== firstBitmap) firstBitmap.recycle()
+            if (toolOptions.hasRotation) {
+                val userRotated = rotateBitmap(firstRotated, toolOptions.rotationDegrees)
+                if (userRotated !== firstRotated) firstRotated.recycle()
+                firstRotated = userRotated
+            }
+            val frameW = firstRotated.width
+            val frameH = firstRotated.height
+            val scale = if (maxOf(frameW, frameH) > maxDim) {
+                maxDim.toFloat() / maxOf(frameW, frameH)
+            } else 1f
+            val gifWidth = (frameW * scale).toInt().coerceAtLeast(1)
+            val gifHeight = (frameH * scale).toInt().coerceAtLeast(1)
 
             FileOutputStream(outputFile).use { fos ->
                 val encoder = GifEncoder(fos)
                 encoder.start(gifWidth, gifHeight, 0)
 
                 var timeMs = startMs
+                var firstFrameAdded = false
                 while (timeMs <= endMs) {
-                    val bitmap = retriever.getFrameAtTime(
-                        timeMs * 1000L,
-                        MediaMetadataRetriever.OPTION_CLOSEST
-                    )
+                    val bitmap = if (!firstFrameAdded) {
+                        firstFrameAdded = true
+                        firstRotated
+                    } else {
+                        retriever.getFrameAtTime(
+                            timeMs * 1000L,
+                            MediaMetadataRetriever.OPTION_CLOSEST
+                        )
+                    }
                     if (bitmap != null) {
-                        val rotated = rotateBitmap(bitmap, rotation)
-                        if (rotated !== bitmap) bitmap.recycle()
+                        val rotated = if (bitmap === firstRotated) bitmap else {
+                            var r = rotateBitmap(bitmap, rotation)
+                            if (r !== bitmap) bitmap.recycle()
+                            if (toolOptions.hasRotation) {
+                                val userRotated = rotateBitmap(r, toolOptions.rotationDegrees)
+                                if (userRotated !== r) r.recycle()
+                                r = userRotated
+                            }
+                            r
+                        }
                         val scaled = Bitmap.createScaledBitmap(rotated, gifWidth, gifHeight, true)
                         if (scaled !== rotated) rotated.recycle()
                         val frame = if (toolOptions.hasFlip) {
-                            val matrix = android.graphics.Matrix()
-                            matrix.preScale(
-                                if (toolOptions.flipHorizontal) -1f else 1f,
-                                if (toolOptions.flipVertical) -1f else 1f
+                            BitmapGeometryUtil.flipBitmap(
+                                scaled,
+                                toolOptions.flipHorizontal,
+                                toolOptions.flipVertical
                             )
-                            Bitmap.createBitmap(scaled, 0, 0, scaled.width, scaled.height, matrix, true)
                         } else scaled
 
                         encoder.addFrame(frame, displayDelayMs)
                         if (frame !== scaled) frame.recycle()
                         scaled.recycle()
+                        if (rotated !== firstRotated) rotated.recycle()
                     }
                     timeMs += frameIntervalMs
                     val p = 0.1f + 0.85f * (timeMs - startMs).toFloat() / effectiveDurationMs
@@ -1509,6 +2866,7 @@ class UniversalConverter {
                 }
                 encoder.finish()
             }
+            firstRotated.recycle()
             progressCallback(1.0f)
             return outputFile
         } finally {
@@ -1516,316 +2874,60 @@ class UniversalConverter {
         }
     }
 
-    // ── Video → AVI (Motion-JPEG) ───────────────────────────────────────
+    // ── Video → AVI (FFmpeg) ───────────────────────────────────────────
 
     private fun convertVideoToAvi(
         sourceFile: File,
+        sourceFormat: FileFormat,
         context: Context,
         progressCallback: (Float) -> Unit,
         quality: QualityPreset,
         toolOptions: MediaToolOptions
     ): File {
-        progressCallback(0.05f)
-        val outputFile = File(context.cacheDir, "${sourceFile.nameWithoutExtension}.avi")
-
-        val retriever = MediaMetadataRetriever()
+        val mp4File = convertVideo(
+            sourceFile, sourceFormat, FileFormat.MP4, context,
+            { p -> progressCallback(p * 0.9f) },
+            quality, toolOptions
+        )
+        val aviFile = File(context.cacheDir, "${sourceFile.nameWithoutExtension}.avi")
         try {
-            retriever.setDataSource(sourceFile.absolutePath)
-            val durationMs = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
-                ?.toLongOrNull() ?: throw IOException("Cannot read video duration")
-            val videoWidth = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)
-                ?.toIntOrNull() ?: 320
-            val videoHeight = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)
-                ?.toIntOrNull() ?: 240
-            val rotation = getVideoRotation(sourceFile.absolutePath)
-            val displayWidth = if (rotation == 90 || rotation == 270) videoHeight else videoWidth
-            val displayHeight = if (rotation == 90 || rotation == 270) videoWidth else videoHeight
-            progressCallback(0.1f)
-
-            val startMs = if (toolOptions.hasTrim) toolOptions.trimStartMs else 0L
-            val endMs = if (toolOptions.hasTrim) toolOptions.trimEndMs.coerceAtMost(durationMs) else durationMs
-            val effectiveDurationMs = (endMs - startMs).coerceAtLeast(1)
-
-            val fps = 15
-            val frameIntervalMs = (1000L / fps)
-            val jpegQuality = when (quality) {
-                QualityPreset.LOW -> 60
-                QualityPreset.MEDIUM -> 80
-                QualityPreset.HIGH -> 92
+            return ab.inque.converter.pipeline.FfmpegVideoExporter.remuxToAvi(mp4File, aviFile) { p ->
+                progressCallback(0.9f + 0.1f * p)
             }
-
-            val frames = mutableListOf<ByteArray>()
-            var timeMs = startMs
-            while (timeMs <= endMs) {
-                val bitmap = retriever.getFrameAtTime(
-                    timeMs * 1000L,
-                    MediaMetadataRetriever.OPTION_CLOSEST
-                )
-                if (bitmap != null) {
-                    val rotated = rotateBitmap(bitmap, rotation)
-                    if (rotated !== bitmap) bitmap.recycle()
-                    val frame = if (toolOptions.hasFlip) {
-                        val matrix = android.graphics.Matrix()
-                        matrix.preScale(
-                            if (toolOptions.flipHorizontal) -1f else 1f,
-                            if (toolOptions.flipVertical) -1f else 1f
-                        )
-                        Bitmap.createBitmap(rotated, 0, 0, rotated.width, rotated.height, matrix, true)
-                    } else rotated
-
-                    val baos = ByteArrayOutputStream()
-                    frame.compress(Bitmap.CompressFormat.JPEG, jpegQuality, baos)
-                    frames.add(baos.toByteArray())
-                    if (frame !== rotated) frame.recycle()
-                    rotated.recycle()
-                }
-                timeMs += frameIntervalMs
-                progressCallback((0.1f + 0.6f * (timeMs - startMs).toFloat() / effectiveDurationMs).coerceAtMost(0.7f))
-            }
-
-            progressCallback(0.75f)
-            writeAviFile(outputFile, frames, displayWidth, displayHeight, fps)
-            progressCallback(1.0f)
-            return outputFile
         } finally {
-            retriever.release()
-        }
-    }
-
-    private fun writeAviFile(
-        file: File,
-        frames: List<ByteArray>,
-        width: Int,
-        height: Int,
-        fps: Int
-    ) {
-        val numFrames = frames.size
-        if (numFrames == 0) throw IOException("No video frames extracted")
-        val microSecPerFrame = 1_000_000 / fps
-        val maxFrameSize = frames.maxOf { it.size }
-
-        var moviContentSize = 4 // "movi" list type
-        val frameOffsets = mutableListOf<Int>()
-        var offset = 4
-        for (frame in frames) {
-            frameOffsets.add(offset)
-            val paddedSize = frame.size + (frame.size % 2)
-            moviContentSize += 8 + paddedSize
-            offset += 8 + paddedSize
-        }
-
-        val strlContentSize = 4 + (8 + 56) + (8 + 40) // "strl" + strh chunk + strf chunk
-        val hdrlContentSize = 4 + (8 + 56) + (8 + strlContentSize) // "hdrl" + avih chunk + strl LIST
-        val indexDataSize = numFrames * 16
-        val riffContentSize = 4 + (8 + hdrlContentSize) + (8 + moviContentSize) + (8 + indexDataSize)
-
-        BufferedOutputStream(FileOutputStream(file)).use { buf ->
-            fun writeInt(v: Int) {
-                buf.write(v and 0xFF)
-                buf.write((v shr 8) and 0xFF)
-                buf.write((v shr 16) and 0xFF)
-                buf.write((v shr 24) and 0xFF)
-            }
-            fun writeShort(v: Int) {
-                buf.write(v and 0xFF)
-                buf.write((v shr 8) and 0xFF)
-            }
-            fun fourCC(s: String) = buf.write(s.toByteArray(Charsets.US_ASCII))
-
-            fourCC("RIFF"); writeInt(riffContentSize); fourCC("AVI ")
-
-            // ── hdrl LIST ─────────────────────────
-            fourCC("LIST"); writeInt(hdrlContentSize); fourCC("hdrl")
-
-            // avih (MainAVIHeader, 56 bytes)
-            fourCC("avih"); writeInt(56)
-            writeInt(microSecPerFrame)
-            writeInt(0)                // dwMaxBytesPerSec
-            writeInt(0)                // dwPaddingGranularity
-            writeInt(0x10)             // dwFlags = AVIF_HASINDEX
-            writeInt(numFrames)
-            writeInt(0)                // dwInitialFrames
-            writeInt(1)                // dwStreams
-            writeInt(maxFrameSize)     // dwSuggestedBufferSize
-            writeInt(width)
-            writeInt(height)
-            writeInt(0); writeInt(0); writeInt(0); writeInt(0)
-
-            // ── strl LIST ─────────────────────────
-            fourCC("LIST"); writeInt(strlContentSize); fourCC("strl")
-
-            // strh (AVIStreamHeader, 56 bytes)
-            fourCC("strh"); writeInt(56)
-            fourCC("vids")
-            fourCC("MJPG")
-            writeInt(0)                // dwFlags
-            writeShort(0); writeShort(0)
-            writeInt(0)                // dwInitialFrames
-            writeInt(1)                // dwScale
-            writeInt(fps)              // dwRate
-            writeInt(0)                // dwStart
-            writeInt(numFrames)        // dwLength
-            writeInt(maxFrameSize)
-            writeInt(-1)               // dwQuality
-            writeInt(0)                // dwSampleSize
-            writeShort(0); writeShort(0); writeShort(width); writeShort(height)
-
-            // strf (BITMAPINFOHEADER, 40 bytes)
-            fourCC("strf"); writeInt(40)
-            writeInt(40)               // biSize
-            writeInt(width)
-            writeInt(height)
-            writeShort(1)              // biPlanes
-            writeShort(24)             // biBitCount
-            fourCC("MJPG")             // biCompression
-            writeInt(width * height * 3)
-            writeInt(0); writeInt(0)   // ppm
-            writeInt(0); writeInt(0)   // colors
-
-            // ── movi LIST ─────────────────────────
-            fourCC("LIST"); writeInt(moviContentSize); fourCC("movi")
-            for (frame in frames) {
-                fourCC("00dc"); writeInt(frame.size)
-                buf.write(frame)
-                if (frame.size % 2 != 0) buf.write(0)
-            }
-
-            // ── idx1 ─────────────────────────────
-            fourCC("idx1"); writeInt(indexDataSize)
-            for (i in frames.indices) {
-                fourCC("00dc")
-                writeInt(0x10) // AVIIF_KEYFRAME
-                writeInt(frameOffsets[i])
-                writeInt(frames[i].size)
-            }
-
-            buf.flush()
+            mp4File.delete()
         }
     }
 
     // ── Image → BMP ─────────────────────────────────────────────────────
 
     private fun writeBmp(bitmap: Bitmap, file: File) {
-        val w = bitmap.width
-        val h = bitmap.height
-        val rowBytes = w * 3
-        val rowPadding = (4 - (rowBytes % 4)) % 4
-        val paddedRowBytes = rowBytes + rowPadding
-        val imageSize = paddedRowBytes * h
-        val fileSize = 14 + 40 + imageSize
-
-        FileOutputStream(file).use { fos ->
-            val buf = BufferedOutputStream(fos)
-            fun writeInt(v: Int) {
-                buf.write(v and 0xFF); buf.write((v shr 8) and 0xFF)
-                buf.write((v shr 16) and 0xFF); buf.write((v shr 24) and 0xFF)
-            }
-            fun writeShort(v: Int) {
-                buf.write(v and 0xFF); buf.write((v shr 8) and 0xFF)
-            }
-
-            // BITMAPFILEHEADER (14 bytes)
-            buf.write('B'.code); buf.write('M'.code)
-            writeInt(fileSize)
-            writeInt(0) // reserved
-            writeInt(54) // pixel data offset
-
-            // BITMAPINFOHEADER (40 bytes)
-            writeInt(40)
-            writeInt(w)
-            writeInt(h) // positive = bottom-up
-            writeShort(1) // planes
-            writeShort(24) // bits per pixel
-            writeInt(0) // BI_RGB
-            writeInt(imageSize)
-            writeInt(2835); writeInt(2835) // 72 DPI in pixels/meter
-            writeInt(0); writeInt(0)
-
-            val pixels = IntArray(w)
-            val pad = ByteArray(rowPadding)
-            for (y in h - 1 downTo 0) {
-                bitmap.getPixels(pixels, 0, w, 0, y, w, 1)
-                for (x in 0 until w) {
-                    val p = pixels[x]
-                    buf.write(p and 0xFF)         // B
-                    buf.write((p shr 8) and 0xFF) // G
-                    buf.write((p shr 16) and 0xFF) // R
-                }
-                if (rowPadding > 0) buf.write(pad)
-            }
-            buf.flush()
-        }
+        FileOutputStream(file).use { ImageExportUtil.writeBmp(bitmap, it) }
     }
 
     // ── Image → TIFF (uncompressed RGB) ─────────────────────────────────
 
     private fun writeTiff(bitmap: Bitmap, file: File) {
-        val w = bitmap.width
-        val h = bitmap.height
-        val samplesPerPixel = 3
-        val bitsPerSample = 8
-        val imageDataSize = w * h * samplesPerPixel
+        FileOutputStream(file).use { ImageExportUtil.writeTiff(bitmap, it) }
+    }
 
-        val numTags = 11
-        val ifdSize = 2 + numTags * 12 + 4 // count + entries + next-IFD pointer
-        val bpsArrayOffset = 8 + ifdSize     // BitsPerSample SHORT array (3 values)
-        val xresOffset = bpsArrayOffset + 6  // XResolution RATIONAL (8 bytes)
-        val yresOffset = xresOffset + 8
-        val stripOffset = yresOffset + 8     // pixel data starts here
-
-        FileOutputStream(file).use { fos ->
-            val buf = BufferedOutputStream(fos)
-            fun writeShort(v: Int) {
-                buf.write(v and 0xFF); buf.write((v shr 8) and 0xFF)
-            }
-            fun writeInt(v: Int) {
-                buf.write(v and 0xFF); buf.write((v shr 8) and 0xFF)
-                buf.write((v shr 16) and 0xFF); buf.write((v shr 24) and 0xFF)
-            }
-            fun ifdEntry(tag: Int, type: Int, count: Int, value: Int) {
-                writeShort(tag); writeShort(type); writeInt(count); writeInt(value)
-            }
-
-            // Header: little-endian, magic 42, IFD offset = 8
-            buf.write('I'.code); buf.write('I'.code)
-            writeShort(42)
-            writeInt(8)
-
-            // IFD
-            writeShort(numTags)
-            ifdEntry(256, 3, 1, w)                          // ImageWidth (SHORT)
-            ifdEntry(257, 3, 1, h)                          // ImageLength (SHORT)
-            ifdEntry(258, 3, 3, bpsArrayOffset)             // BitsPerSample → offset
-            ifdEntry(259, 3, 1, 1)                          // Compression = none
-            ifdEntry(262, 3, 1, 2)                          // PhotometricInterpretation = RGB
-            ifdEntry(273, 4, 1, stripOffset)                // StripOffsets (LONG)
-            ifdEntry(277, 3, 1, samplesPerPixel)            // SamplesPerPixel
-            ifdEntry(278, 3, 1, h)                          // RowsPerStrip
-            ifdEntry(279, 4, 1, imageDataSize)              // StripByteCounts (LONG)
-            ifdEntry(282, 5, 1, xresOffset)                 // XResolution → offset
-            ifdEntry(283, 5, 1, yresOffset)                 // YResolution → offset
-            writeInt(0) // next IFD = 0
-
-            // BitsPerSample array: 8, 8, 8
-            writeShort(bitsPerSample); writeShort(bitsPerSample); writeShort(bitsPerSample)
-
-            // XResolution: 72/1 as RATIONAL
-            writeInt(72); writeInt(1)
-            // YResolution: 72/1 as RATIONAL
-            writeInt(72); writeInt(1)
-
-            // Pixel data: RGB top-to-bottom
-            val pixels = IntArray(w)
-            for (y in 0 until h) {
-                bitmap.getPixels(pixels, 0, w, 0, y, w, 1)
-                for (x in 0 until w) {
-                    val p = pixels[x]
-                    buf.write((p shr 16) and 0xFF) // R
-                    buf.write((p shr 8) and 0xFF)  // G
-                    buf.write(p and 0xFF)           // B
-                }
-            }
-            buf.flush()
+    /** Encode bitmap to HEIC using AndroidX HeifWriter. Device-dependent; may throw if no HEIC encoder. */
+    private fun writeHeic(bitmap: Bitmap, file: File, quality: Int) {
+        val writer = HeifWriter.Builder(
+            file.absolutePath,
+            bitmap.width.coerceAtLeast(1),
+            bitmap.height.coerceAtLeast(1),
+            HeifWriter.INPUT_MODE_BITMAP
+        )
+            .setMaxImages(1)
+            .setQuality(quality.coerceIn(0, 100))
+            .build()
+        try {
+            writer.start()
+            writer.addBitmap(bitmap)
+            writer.stop(10_000)
+        } finally {
+            writer.close()
         }
     }
 
@@ -1887,6 +2989,169 @@ class UniversalConverter {
         return outputFile
     }
 
+    // ── Document: HTML → PDF / DOCX / TXT / EPUB ─────────────────────────
+
+    private fun convertHtmlToPdf(sourceFile: File, context: Context, progressCallback: (Float) -> Unit): File {
+        progressCallback(0.15f)
+        val htmlContent = sourceFile.readText()
+        val baseUri = resolveHtmlBaseUri(htmlContent, sourceFile.parentFile?.absolutePath ?: context.cacheDir.absolutePath)
+        progressCallback(0.25f)
+        val outputFile = File(context.cacheDir, "${sourceFile.nameWithoutExtension}.pdf")
+        val pdfWriter = com.itextpdf.kernel.pdf.PdfWriter(outputFile)
+        val pdfDocument = com.itextpdf.kernel.pdf.PdfDocument(pdfWriter)
+        val converterProperties = com.itextpdf.html2pdf.ConverterProperties()
+        converterProperties.baseUri = baseUri
+        // Allow larger images so page screenshots and embedded media are included (default can be restrictive)
+        try {
+            val retriever = com.itextpdf.styledxmlparser.resolver.resource.DefaultResourceRetriever()
+            retriever.setResourceSizeByteLimit(20 * 1024 * 1024) // 20 MB per resource
+            converterProperties.resourceRetriever = retriever
+        } catch (_: Throwable) { /* use default retriever */ }
+        progressCallback(0.35f)
+        java.io.ByteArrayInputStream(htmlContent.toByteArray(Charsets.UTF_8)).use { input ->
+            com.itextpdf.html2pdf.HtmlConverter.convertToPdf(input, pdfDocument, converterProperties)
+        }
+        pdfDocument.close()
+        progressCallback(1.0f)
+        return outputFile
+    }
+
+    /** Resolves base URI for HTML so images and relative links load: prefers stored BASE_URL, then <base href>, then first absolute URL origin, then file dir. */
+    private fun resolveHtmlBaseUri(htmlContent: String, fallbackFileDir: String): String {
+        // Comment we inject when saving from link: <!-- BASE_URL:https://example.com/ -->
+        val baseUrlComment = Regex("""<!--\s*BASE_URL:\s*(\S+)\s*-->""").find(htmlContent)
+        if (baseUrlComment != null) {
+            val base = baseUrlComment.groupValues[1].trim().removeSuffix("/") + "/"
+            if (base.startsWith("http://") || base.startsWith("https://")) return base
+        }
+        val doc = Jsoup.parse(htmlContent)
+        val baseHref = doc.select("base[href]").first()?.attr("abs:href")
+        if (!baseHref.isNullOrBlank()) {
+            val withSlash = baseHref.removeSuffix("/") + "/"
+            if (withSlash.startsWith("http")) return withSlash
+        }
+        val firstEl = doc.select("img[src^=http], link[href^=http], a[href^=http]").first() ?: return fallbackFileDir.trimEnd('/') + "/"
+        val firstAbsolute = (if (firstEl.tagName() == "img") firstEl.attr("abs:src") else firstEl.attr("abs:href")).trim()
+        if (firstAbsolute.isNotEmpty()) {
+            try {
+                val url = java.net.URL(firstAbsolute)
+                return "${url.protocol}://${url.host}/"
+            } catch (_: Exception) { }
+        }
+        return fallbackFileDir.trimEnd('/') + "/"
+    }
+
+    private fun convertHtmlToTxt(sourceFile: File, context: Context, progressCallback: (Float) -> Unit): File {
+        progressCallback(0.2f)
+        val text = HtmlStructureUtil.plainTextFromHtml(sourceFile.readText())
+        val outputFile = File(context.cacheDir, "${sourceFile.nameWithoutExtension}.txt")
+        outputFile.writeText(text)
+        progressCallback(1.0f)
+        return outputFile
+    }
+
+    private fun convertHtmlToDocx(sourceFile: File, context: Context, progressCallback: (Float) -> Unit): File {
+        progressCallback(0.05f)
+        val pdf = convertHtmlToPdf(sourceFile, context) { p -> progressCallback(0.05f + 0.45f * p) }
+        try {
+            val docx = PdfConverter().convertPdfToDocx(pdf, context) { p -> progressCallback(0.5f + 0.5f * p) }
+            val outputFile = File(context.cacheDir, "${sourceFile.nameWithoutExtension}.docx")
+            if (docx.absolutePath != outputFile.absolutePath) {
+                docx.copyTo(outputFile, overwrite = true)
+                docx.delete()
+            }
+            return outputFile
+        } finally {
+            pdf.delete()
+        }
+    }
+
+    private fun convertHtmlToRtf(sourceFile: File, context: Context, progressCallback: (Float) -> Unit): File {
+        progressCallback(0.1f)
+        val lines = HtmlStructureUtil.linesFromHtml(sourceFile.readText())
+        progressCallback(0.4f)
+        val outputFile = File(context.cacheDir, "${sourceFile.nameWithoutExtension}.rtf")
+
+        val rtf = StringBuilder()
+        rtf.append("{\\rtf1\\ansi\\deff0 {\\fonttbl {\\f0 Times New Roman;}}\n")
+        rtf.append("\\f0\\fs24\n")
+        for (line in lines) {
+            rtf.append("${escapeRtfText(line)}\\par\n")
+        }
+        rtf.append("}")
+        progressCallback(0.8f)
+        outputFile.writeText(rtf.toString())
+        progressCallback(1.0f)
+        return outputFile
+    }
+
+    private fun convertHtmlToEpub(sourceFile: File, context: Context, progressCallback: (Float) -> Unit): File {
+        progressCallback(0.1f)
+        val html = sourceFile.readText()
+        val doc = Jsoup.parse(html)
+        val title = doc.selectFirst("title")?.text()?.ifBlank { null } ?: sourceFile.nameWithoutExtension
+        val text = HtmlStructureUtil.plainTextFromHtml(html)
+        val outputFile = File(context.cacheDir, "${sourceFile.nameWithoutExtension}.epub")
+        progressCallback(0.3f)
+        writeSimpleEpub(outputFile, title, text)
+        progressCallback(1.0f)
+        return outputFile
+    }
+
+    // ── Document: * → HTML (via text extraction) ─────────────────────────
+
+    private fun convertDocumentToHtml(
+        sourceFile: File,
+        textExtractor: (File) -> File,
+        context: Context,
+        progressCallback: (Float) -> Unit
+    ): File {
+        progressCallback(0.1f)
+        val textFile = textExtractor(sourceFile)
+        try {
+            val text = textFile.readText()
+            val title = sourceFile.nameWithoutExtension
+            val outputFile = File(context.cacheDir, "${title}.html")
+            progressCallback(0.8f)
+            writeTextToHtml(outputFile, title, text)
+            progressCallback(1.0f)
+            return outputFile
+        } finally {
+            textFile.delete()
+        }
+    }
+
+    private fun convertTxtToHtml(sourceFile: File, context: Context, progressCallback: (Float) -> Unit): File {
+        progressCallback(0.2f)
+        val text = sourceFile.readText()
+        val title = sourceFile.nameWithoutExtension
+        val outputFile = File(context.cacheDir, "${title}.html")
+        writeTextToHtml(outputFile, title, text)
+        progressCallback(1.0f)
+        return outputFile
+    }
+
+    private fun writeTextToHtml(outputFile: File, title: String, text: String) {
+        val escapedTitle = title.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")
+        val paragraphs = text.lines().map { it.trim() }.filter { it.isNotEmpty() }
+        val body = if (paragraphs.isEmpty()) {
+            "  <p></p>"
+        } else {
+            paragraphs.joinToString("\n") { line ->
+                val escaped = line.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                "  <p>$escaped</p>"
+            }
+        }
+        val html = """<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"/><title>$escapedTitle</title></head>
+<body>
+$body
+</body>
+</html>"""
+        outputFile.writeText(html)
+    }
+
     // ── Document: RTF → TXT ─────────────────────────────────────────────
 
     private fun convertRtfToTxt(sourceFile: File, context: Context, progressCallback: (Float) -> Unit): File {
@@ -1936,6 +3201,475 @@ class UniversalConverter {
         writeSimpleEpub(outputFile, title, plainText)
         progressCallback(1.0f)
         return outputFile
+    }
+
+    // ── Cross-category helpers (planner targets) ─────────────────────────
+
+    private fun isRasterImageFormat(format: FileFormat): Boolean =
+        format == FileFormat.JPG || format == FileFormat.JPEG || format == FileFormat.PNG ||
+            format == FileFormat.WEBP || format == FileFormat.BMP || format == FileFormat.TIFF ||
+            format == FileFormat.HEIC
+
+    private fun convertDocumentToImages(
+        sourceFile: File,
+        sourceFormat: FileFormat,
+        targetFormat: FileFormat,
+        context: Context,
+        progressCallback: (Float) -> Unit
+    ): File {
+        progressCallback(0.05f)
+        val pdfFile = if (sourceFormat == FileFormat.PDF) {
+            sourceFile
+        } else {
+            convertDocument(sourceFile, sourceFormat, FileFormat.PDF, context) { p ->
+                progressCallback(0.05f + 0.45f * p)
+            }
+        }
+        return convertDocument(pdfFile, FileFormat.PDF, targetFormat, context) { p ->
+            progressCallback(0.5f + 0.5f * p)
+        }
+    }
+
+    private fun convertImageToDocument(
+        sourceFile: File,
+        sourceFormat: FileFormat,
+        targetFormat: FileFormat,
+        context: Context,
+        progressCallback: (Float) -> Unit
+    ): File {
+        progressCallback(0.1f)
+        val text = OcrHelper.recognizeTextFromFile(sourceFile).ifBlank { "[No text detected in image]" }
+        val txtFile = File(context.cacheDir, "ocr_${System.currentTimeMillis()}.txt")
+        txtFile.writeText(text)
+        if (targetFormat == FileFormat.TXT) {
+            val out = File(context.cacheDir, "${sourceFile.nameWithoutExtension}.txt")
+            txtFile.copyTo(out, overwrite = true)
+            txtFile.delete()
+            progressCallback(1f)
+            return out
+        }
+        try {
+            return when (targetFormat) {
+                FileFormat.PDF -> convertTxtToPdf(txtFile, context, progressCallback)
+                FileFormat.DOCX -> convertTxtToDocx(txtFile, context, progressCallback)
+                FileFormat.RTF -> convertTxtToRtf(txtFile, context, progressCallback)
+                FileFormat.EPUB -> convertTxtToEpub(txtFile, context, progressCallback)
+                FileFormat.HTML -> convertTxtToHtml(txtFile, context, progressCallback)
+                else -> throw UnsupportedOperationException("Image to ${targetFormat.displayName} not supported")
+            }
+        } finally {
+            txtFile.delete()
+        }
+    }
+
+    private fun convertImageToAudio(
+        sourceFile: File,
+        sourceFormat: FileFormat,
+        targetFormat: FileFormat,
+        context: Context,
+        progressCallback: (Float) -> Unit
+    ): File {
+        progressCallback(0.1f)
+        val text = OcrHelper.recognizeTextFromFile(sourceFile).ifBlank { " " }
+        val txtFile = File(context.cacheDir, "ocr_tts_${System.currentTimeMillis()}.txt")
+        txtFile.writeText(text)
+        try {
+            return convertDocumentToAudio(txtFile, FileFormat.TXT, targetFormat, context) { p ->
+                progressCallback(0.1f + 0.9f * p)
+            }
+        } finally {
+            txtFile.delete()
+        }
+    }
+
+    private fun convertVideoToImage(
+        sourceFile: File,
+        targetFormat: FileFormat,
+        context: Context,
+        progressCallback: (Float) -> Unit,
+        toolOptions: MediaToolOptions
+    ): File {
+        if (toolOptions.exportAllVideoFrames) {
+            return convertVideoToFrameZip(sourceFile, context, progressCallback, toolOptions)
+        }
+        progressCallback(0.1f)
+        val retriever = MediaMetadataRetriever()
+        try {
+            retriever.setDataSource(sourceFile.absolutePath)
+            val durationMs = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
+            val trimStart = if (toolOptions.hasTrim) toolOptions.trimStartMs else 0L
+            val trimEnd = if (toolOptions.hasTrim) toolOptions.trimEndMs else durationMs
+            val sampleMs = when {
+                toolOptions.hasExtractFrame -> toolOptions.extractFrameMs.coerceIn(0L, durationMs.coerceAtLeast(0L))
+                trimEnd > trimStart -> (trimStart + trimEnd) / 2
+                durationMs > 0 -> durationMs / 2
+                else -> 0L
+            }
+            val frameOption = if (toolOptions.hasExtractFrame) {
+                MediaMetadataRetriever.OPTION_CLOSEST
+            } else {
+                MediaMetadataRetriever.OPTION_CLOSEST_SYNC
+            }
+            val bitmap = retriever.getFrameAtTime(sampleMs * 1000, frameOption)
+                ?: throw IOException("Could not extract video frame")
+            val oriented = orientVideoFrame(bitmap, sourceFile.absolutePath, toolOptions)
+            val frameFile = File(context.cacheDir, "frame_${System.currentTimeMillis()}.png")
+            FileOutputStream(frameFile).use { fos ->
+                oriented.compress(Bitmap.CompressFormat.PNG, 100, fos)
+            }
+            oriented.recycle()
+            progressCallback(0.5f)
+            val sourceFormat = FileFormat.PNG
+            val result = convertImage(frameFile, sourceFormat, targetFormat, context, { p ->
+                progressCallback(0.5f + 0.5f * p)
+            })
+            frameFile.delete()
+            return result
+        } finally {
+            retriever.release()
+        }
+    }
+
+    private fun convertGifToImage(
+        sourceFile: File,
+        targetFormat: FileFormat,
+        context: Context,
+        progressCallback: (Float) -> Unit,
+        scale: Float?,
+        quality: QualityPreset,
+        toolOptions: MediaToolOptions
+    ): File {
+        progressCallback(0.1f)
+        val bitmap = BitmapFactory.decodeFile(sourceFile.absolutePath)
+            ?: throw IOException("Could not decode GIF frame")
+        if (targetFormat == FileFormat.PNG) {
+            val outputFile = File(context.cacheDir, "gif_out_${System.currentTimeMillis()}.png")
+            FileOutputStream(outputFile).use { fos ->
+                if (!bitmap.compress(Bitmap.CompressFormat.PNG, 100, fos)) {
+                    throw IOException("Failed to encode GIF frame to PNG")
+                }
+            }
+            bitmap.recycle()
+            progressCallback(1f)
+            return outputFile
+        }
+        val frameFile = File(context.cacheDir, "gif_frame_${System.currentTimeMillis()}.png")
+        FileOutputStream(frameFile).use { fos ->
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, fos)
+        }
+        bitmap.recycle()
+        progressCallback(0.5f)
+        val result = convertImage(
+            frameFile, FileFormat.PNG, targetFormat, context,
+            { p -> progressCallback(0.5f + 0.5f * p) },
+            scale, quality, toolOptions
+        )
+        frameFile.delete()
+        return result
+    }
+
+    private fun convertVideoToDocument(
+        sourceFile: File,
+        sourceFormat: FileFormat,
+        targetFormat: FileFormat,
+        context: Context,
+        progressCallback: (Float) -> Unit,
+        toolOptions: MediaToolOptions
+    ): File {
+        val wavFile = File(context.cacheDir, "v2doc_${System.currentTimeMillis()}.wav")
+        try {
+            extractVideoToWav(sourceFile, wavFile, { p -> progressCallback(p * 0.45f) }, toolOptions)
+            return convertAudioToDocument(wavFile, FileFormat.WAV, targetFormat, context) { p ->
+                progressCallback(0.45f + 0.55f * p)
+            }
+        } finally {
+            wavFile.delete()
+        }
+    }
+
+    private fun convertAudioToImage(
+        sourceFile: File,
+        targetFormat: FileFormat,
+        context: Context,
+        progressCallback: (Float) -> Unit,
+        toolOptions: MediaToolOptions
+    ): File {
+        progressCallback(0.1f)
+        val wav = File(context.cacheDir, "wave_${System.currentTimeMillis()}.wav")
+        try {
+            if (toolOptions.hasTrim || toolOptions.hasSpeed) {
+                decodeAudioToWavWithTools(sourceFile, wav, toolOptions) { p -> progressCallback(0.1f + 0.4f * p) }
+            } else {
+                val tempWav = decodeAudioToMonoWav(sourceFile, context, 44100)
+                tempWav.copyTo(wav, overwrite = true)
+                tempWav.delete()
+                progressCallback(0.4f)
+            }
+            val info = readWavInfo(wav)
+            val width = 1200
+            val height = 400
+            val samples = info.pcm.size / 2
+            val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+            val canvas = android.graphics.Canvas(bitmap)
+            canvas.drawColor(android.graphics.Color.WHITE)
+            val paint = android.graphics.Paint().apply {
+                color = android.graphics.Color.BLACK
+                strokeWidth = 1f
+                isAntiAlias = true
+            }
+            if (samples > 1) {
+                val step = (samples / width).coerceAtLeast(1)
+                val mid = height / 2f
+                for (x in 0 until width) {
+                    val idx = (x * step * 2).coerceAtMost(info.pcm.size - 2)
+                    val sample = ((info.pcm[idx + 1].toInt() shl 8) or (info.pcm[idx].toInt() and 0xff)).toShort().toInt()
+                    val y = mid - (sample / 32768f) * (height / 2f - 4f)
+                    canvas.drawPoint(x.toFloat(), y, paint)
+                }
+            }
+            val png = File(context.cacheDir, "waveform_${System.currentTimeMillis()}.png")
+            FileOutputStream(png).use { fos -> bitmap.compress(Bitmap.CompressFormat.PNG, 100, fos) }
+            bitmap.recycle()
+            progressCallback(0.7f)
+            return convertImage(png, FileFormat.PNG, targetFormat, context, { p ->
+                progressCallback(0.7f + 0.3f * p)
+            })
+        } finally {
+            wav.delete()
+        }
+    }
+
+    private data class WavPcmInfo(val sampleRate: Int, val channels: Int, val pcm: ByteArray)
+
+    private fun readWavInfo(file: File): WavPcmInfo {
+        val parsed = readWav(file)
+        return WavPcmInfo(parsed.sampleRate, parsed.channels, parsed.pcm)
+    }
+
+    private fun convertAudioToVideo(
+        sourceFile: File,
+        sourceFormat: FileFormat,
+        targetFormat: FileFormat,
+        context: Context,
+        progressCallback: (Float) -> Unit,
+        quality: QualityPreset,
+        toolOptions: MediaToolOptions = MediaToolOptions()
+    ): File {
+        progressCallback(0.1f)
+        val imageTarget = FileFormat.PNG
+        val imageFile = convertAudioToImage(sourceFile, imageTarget, context, { p ->
+            progressCallback(0.1f + 0.35f * p)
+        }, toolOptions)
+        val durationMs = getAudioDurationMs(sourceFile, toolOptions).coerceAtLeast(1000L)
+        val frameCount = (durationMs / 1000).toInt().coerceIn(1, 600)
+        val frameList = List(frameCount) { imageFile }
+        val silentVideo = convertImagesToVideo(frameList, FileFormat.PNG, targetFormat, context, { p ->
+            progressCallback(0.45f + 0.35f * p)
+        }, quality)
+        imageFile.delete()
+        val audioForMux = File(context.cacheDir, "mux_audio_${System.currentTimeMillis()}.m4a")
+        try {
+            if (toolOptions.hasTrim || toolOptions.hasSpeed) {
+                val wav = File(context.cacheDir, "mux_wav_${System.currentTimeMillis()}.wav")
+                try {
+                    decodeAudioToWavWithTools(sourceFile, wav, toolOptions) { }
+                    encodeAudioToM4a(wav, audioForMux, quality) { }
+                } finally {
+                    wav.delete()
+                }
+            } else {
+                encodeAudioToM4a(sourceFile, audioForMux, quality) { }
+            }
+            return muxVideoWithAudioTrack(
+                silentVideo, audioForMux, targetFormat, context
+            ) { p -> progressCallback(0.8f + 0.2f * p) }
+        } finally {
+            silentVideo.delete()
+            audioForMux.delete()
+        }
+    }
+
+    private fun convertDocumentToVideo(
+        sourceFile: File,
+        sourceFormat: FileFormat,
+        targetFormat: FileFormat,
+        context: Context,
+        progressCallback: (Float) -> Unit,
+        quality: QualityPreset
+    ): File {
+        progressCallback(0.05f)
+        val zipOrImage = convertDocumentToImages(sourceFile, sourceFormat, FileFormat.PNG, context) { p ->
+            progressCallback(0.05f + 0.55f * p)
+        }
+        val images = if (zipOrImage.extension.equals("zip", true)) {
+            unzipImages(zipOrImage, context)
+        } else {
+            listOf(zipOrImage)
+        }
+        try {
+            return convertImagesToVideo(images, FileFormat.PNG, targetFormat, context, { p ->
+                progressCallback(0.6f + 0.4f * p)
+            }, quality)
+        } finally {
+            if (zipOrImage.extension.equals("zip", true)) {
+                images.forEach { it.delete() }
+            }
+        }
+    }
+
+    private fun unzipImages(zipFile: File, context: Context): List<File> {
+        val dir = File(context.cacheDir, "unz_${System.currentTimeMillis()}").apply { mkdirs() }
+        val out = mutableListOf<File>()
+        ZipInputStream(FileInputStream(zipFile)).use { zis ->
+            var entry = zis.nextEntry
+            while (entry != null) {
+                if (!entry.isDirectory) {
+                    val f = File(dir, entry.name.substringAfterLast('/'))
+                    FileOutputStream(f).use { fos -> zis.copyTo(fos) }
+                    out.add(f)
+                }
+                zis.closeEntry()
+                entry = zis.nextEntry
+            }
+        }
+        return out.sortedBy { it.name }
+    }
+
+    internal fun convertImagesToVideo(
+        imageFiles: List<File>,
+        sourceFormat: FileFormat,
+        targetFormat: FileFormat,
+        context: Context,
+        progressCallback: (Float) -> Unit,
+        quality: QualityPreset
+    ): File {
+        if (imageFiles.isEmpty()) throw IOException("No images for video")
+        val gifFile = File(context.cacheDir, "slideshow_${System.currentTimeMillis()}.gif")
+        val displayDelayMs = 1000
+        val bitmaps = imageFiles.mapNotNull { BitmapFactory.decodeFile(it.absolutePath) }
+        if (bitmaps.isEmpty()) throw IOException("Could not decode images for video")
+        val (canvasW, canvasH) = BitmapGeometryUtil.slideshowCanvasSize(
+            bitmaps.first().width, bitmaps.first().height
+        )
+        FileOutputStream(gifFile).use { fos ->
+            val encoder = GifEncoder(fos)
+            encoder.start(canvasW, canvasH, 0)
+            for ((index, bitmap) in bitmaps.withIndex()) {
+                val framed = BitmapGeometryUtil.fitBitmapOnCanvas(bitmap, canvasW, canvasH)
+                encoder.addFrame(framed, displayDelayMs)
+                if (framed !== bitmap) framed.recycle()
+                bitmap.recycle()
+                progressCallback(((index + 1).toFloat() / bitmaps.size * 0.7f).coerceAtMost(0.7f))
+            }
+            encoder.finish()
+        }
+        if (targetFormat == FileFormat.GIF) {
+            progressCallback(1f)
+            return gifFile
+        }
+        try {
+            return convertFile(gifFile, targetFormat, context, { p ->
+                progressCallback(0.7f + 0.3f * p)
+            }, null, quality, MediaToolOptions(), allowMultiHop = false)
+        } finally {
+            gifFile.delete()
+        }
+    }
+
+    private fun decodeAudioToWavWithTools(
+        sourceFile: File,
+        outputFile: File,
+        toolOptions: MediaToolOptions,
+        progressCallback: (Float) -> Unit
+    ) {
+        var extractor: MediaExtractor? = null
+        var decoder: MediaCodec? = null
+        try {
+            extractor = MediaExtractor()
+            extractor.setDataSource(sourceFile.absolutePath)
+            var trackIndex = -1
+            var format: MediaFormat? = null
+            for (i in 0 until extractor.trackCount) {
+                val f = extractor.getTrackFormat(i)
+                if (f.getString(MediaFormat.KEY_MIME)?.startsWith("audio/") == true) {
+                    trackIndex = i; format = f; break
+                }
+            }
+            if (trackIndex == -1 || format == null) throw IOException("No audio track")
+            extractor.selectTrack(trackIndex)
+            val trackDurationUs = if (format.containsKey(MediaFormat.KEY_DURATION))
+                format.getLong(MediaFormat.KEY_DURATION) else 0L
+            val trimStartUs = if (toolOptions.hasTrim) toolOptions.trimStartMs * 1000L else 0L
+            val trimEndUs = if (toolOptions.hasTrim) {
+                val raw = toolOptions.trimEndMs * 1000L
+                if (trackDurationUs > 0L) raw.coerceAtMost(trackDurationUs) else raw
+            } else if (trackDurationUs > 0L) trackDurationUs else Long.MAX_VALUE
+            if (toolOptions.hasTrim) extractor.seekTo(trimStartUs, MediaExtractor.SEEK_TO_CLOSEST_SYNC)
+            val sampleRate = format.getInteger(MediaFormat.KEY_SAMPLE_RATE)
+            val channelCount = format.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
+            val mime = format.getString(MediaFormat.KEY_MIME)!!
+            decoder = MediaCodec.createDecoderByType(mime)
+            decoder.configure(format, null, null, 0)
+            decoder.start()
+            val bufferInfo = MediaCodec.BufferInfo()
+            val pcmBuffer = java.io.ByteArrayOutputStream()
+            var sawEOS = false
+            while (!sawEOS) {
+                val inputIndex = decoder.dequeueInputBuffer(10_000)
+                if (inputIndex >= 0) {
+                    val inputBuffer = decoder.getInputBuffer(inputIndex)!!
+                    val size = extractor.readSampleData(inputBuffer, 0)
+                    if (size < 0) {
+                        decoder.queueInputBuffer(inputIndex, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
+                        sawEOS = true
+                    } else {
+                        val sampleTime = extractor.sampleTime
+                        if (sampleTime < trimStartUs) {
+                            extractor.advance()
+                        } else if (sampleTime > trimEndUs) {
+                            decoder.queueInputBuffer(inputIndex, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
+                            sawEOS = true
+                        } else {
+                            decoder.queueInputBuffer(inputIndex, 0, size, sampleTime, 0)
+                            extractor.advance()
+                        }
+                    }
+                }
+                val outputIndex = decoder.dequeueOutputBuffer(bufferInfo, 10_000)
+                if (outputIndex >= 0) {
+                    val outputBuffer = decoder.getOutputBuffer(outputIndex)
+                    if (outputBuffer != null && bufferInfo.size > 0) {
+                        val chunk = ByteArray(bufferInfo.size)
+                        outputBuffer.get(chunk)
+                        pcmBuffer.write(chunk)
+                    }
+                    decoder.releaseOutputBuffer(outputIndex, false)
+                    if ((bufferInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) sawEOS = true
+                }
+            }
+            var pcm = pcmBuffer.toByteArray()
+            if (toolOptions.hasSpeed && toolOptions.speedFactor != 1f) {
+                pcm = resamplePcmForSpeed(pcm, sampleRate, channelCount, toolOptions.speedFactor)
+            }
+            writeWavFile(outputFile, pcm, sampleRate, channelCount)
+            progressCallback(1f)
+        } finally {
+            try { decoder?.stop(); decoder?.release() } catch (_: Exception) {}
+            try { extractor?.release() } catch (_: Exception) {}
+        }
+    }
+
+    private fun resamplePcmForSpeed(pcm: ByteArray, sampleRate: Int, channels: Int, speed: Float): ByteArray {
+        if (speed == 1f) return pcm
+        val frameBytes = channels * 2
+        val frames = pcm.size / frameBytes
+        val outFrames = (frames / speed).toInt().coerceAtLeast(1)
+        val out = ByteArray(outFrames * frameBytes)
+        for (i in 0 until outFrames) {
+            val srcFrame = (i * speed).toInt().coerceAtMost(frames - 1)
+            System.arraycopy(pcm, srcFrame * frameBytes, out, i * frameBytes, frameBytes)
+        }
+        return out
     }
 
     // ── Shared helpers ──────────────────────────────────────────────────
@@ -2027,6 +3761,173 @@ class UniversalConverter {
 $escapedBody
 </body>
 </html>""")
+        }
+    }
+
+    private fun getAudioDurationMs(sourceFile: File, toolOptions: MediaToolOptions): Long {
+        val extractor = MediaExtractor()
+        try {
+            extractor.setDataSource(sourceFile.absolutePath)
+            var maxUs = 0L
+            for (i in 0 until extractor.trackCount) {
+                val fmt = extractor.getTrackFormat(i)
+                if (fmt.containsKey(MediaFormat.KEY_DURATION)) {
+                    maxUs = maxOf(maxUs, fmt.getLong(MediaFormat.KEY_DURATION))
+                }
+            }
+            val durationMs = (maxUs / 1000).coerceAtLeast(0)
+            return if (toolOptions.hasTrim) {
+                (toolOptions.trimEndMs - toolOptions.trimStartMs).coerceAtLeast(0)
+            } else {
+                durationMs
+            }
+        } finally {
+            extractor.release()
+        }
+    }
+
+    /** Replaces silent video audio with the track from [audioFile]. */
+    private fun muxVideoWithAudioTrack(
+        videoFile: File,
+        audioFile: File,
+        targetFormat: FileFormat,
+        context: Context,
+        progressCallback: (Float) -> Unit
+    ): File {
+        val outputFile = File(context.cacheDir, "${videoFile.nameWithoutExtension}_av.${targetFormat.extension}")
+        if (targetFormat == FileFormat.MKV) {
+            val mp4Out = muxVideoWithAudioTrack(
+                videoFile, audioFile, FileFormat.MP4, context
+            ) { p -> progressCallback(p * 0.85f) }
+            try {
+                return ab.inque.converter.pipeline.FfmpegVideoExporter.remuxToMkv(
+                    mp4Out, outputFile
+                ) { p -> progressCallback(0.85f + 0.15f * p) }
+            } finally {
+                mp4Out.delete()
+            }
+        }
+        val muxerFormat = when (targetFormat) {
+            FileFormat.WEBM -> MediaMuxer.OutputFormat.MUXER_OUTPUT_WEBM
+            else -> MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4
+        }
+        val videoExtractor = MediaExtractor()
+        val audioExtractor = MediaExtractor()
+        var muxer: MediaMuxer? = null
+        try {
+            videoExtractor.setDataSource(videoFile.absolutePath)
+            audioExtractor.setDataSource(audioFile.absolutePath)
+            var videoTrackIdx = -1
+            var videoFormat: MediaFormat? = null
+            var audioTrackIdx = -1
+            var audioFormat: MediaFormat? = null
+            for (i in 0 until videoExtractor.trackCount) {
+                val f = videoExtractor.getTrackFormat(i)
+                if (f.getString(MediaFormat.KEY_MIME)?.startsWith("video/") == true) {
+                    videoTrackIdx = i
+                    videoFormat = f
+                    break
+                }
+            }
+            for (i in 0 until audioExtractor.trackCount) {
+                val f = audioExtractor.getTrackFormat(i)
+                if (f.getString(MediaFormat.KEY_MIME)?.startsWith("audio/") == true) {
+                    audioTrackIdx = i
+                    audioFormat = f
+                    break
+                }
+            }
+            if (videoTrackIdx < 0 || audioTrackIdx < 0 || videoFormat == null || audioFormat == null) {
+                throw IOException("Could not mux: missing video or audio track")
+            }
+            videoExtractor.selectTrack(videoTrackIdx)
+            audioExtractor.selectTrack(audioTrackIdx)
+            muxer = MediaMuxer(outputFile.absolutePath, muxerFormat)
+            val outVideo = muxer.addTrack(videoFormat)
+            val outAudio = muxer.addTrack(audioFormat)
+            muxer.start()
+            val buf = ByteBuffer.allocate(1024 * 1024)
+            val info = MediaCodec.BufferInfo()
+            while (true) {
+                val size = videoExtractor.readSampleData(buf, 0)
+                if (size < 0) break
+                info.offset = 0
+                info.size = size
+                info.presentationTimeUs = videoExtractor.sampleTime
+                info.flags = videoExtractor.sampleFlags
+                muxer.writeSampleData(outVideo, buf, info)
+                videoExtractor.advance()
+            }
+            while (true) {
+                val size = audioExtractor.readSampleData(buf, 0)
+                if (size < 0) break
+                info.offset = 0
+                info.size = size
+                info.presentationTimeUs = audioExtractor.sampleTime
+                info.flags = audioExtractor.sampleFlags
+                muxer.writeSampleData(outAudio, buf, info)
+                audioExtractor.advance()
+            }
+            muxer.stop()
+            progressCallback(1f)
+            return outputFile
+        } finally {
+            try { muxer?.release() } catch (_: Exception) {}
+            videoExtractor.release()
+            audioExtractor.release()
+        }
+    }
+
+    /** Samples frames in trim range and packs PNGs into a ZIP. */
+    private fun convertVideoToFrameZip(
+        sourceFile: File,
+        context: Context,
+        progressCallback: (Float) -> Unit,
+        toolOptions: MediaToolOptions
+    ): File {
+        progressCallback(0.05f)
+        val retriever = MediaMetadataRetriever()
+        val zipFile = File(context.cacheDir, "${sourceFile.nameWithoutExtension}_frames.zip")
+        val tempDir = File(context.cacheDir, "frames_${System.currentTimeMillis()}").apply { mkdirs() }
+        try {
+            retriever.setDataSource(sourceFile.absolutePath)
+            val durationMs = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
+                ?.toLongOrNull() ?: throw IOException("Cannot read video duration")
+            val fpsMeta = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_CAPTURE_FRAMERATE)
+            val fps = fpsMeta?.toFloatOrNull()?.coerceIn(1f, 30f) ?: 10f
+            val frameIntervalMs = (1000f / fps).toLong().coerceAtLeast(33)
+            val startMs = if (toolOptions.hasTrim) toolOptions.trimStartMs else 0L
+            val endMs = if (toolOptions.hasTrim) toolOptions.trimEndMs.coerceAtMost(durationMs) else durationMs
+            var timeMs = startMs
+            var index = 0
+            val frameFiles = mutableListOf<File>()
+            while (timeMs <= endMs) {
+                val bitmap = retriever.getFrameAtTime(timeMs * 1000, MediaMetadataRetriever.OPTION_CLOSEST)
+                if (bitmap != null) {
+                    val oriented = orientVideoFrame(bitmap, sourceFile.absolutePath, toolOptions)
+                    val frameFile = File(tempDir, "frame_${index++}.png")
+                    FileOutputStream(frameFile).use { fos ->
+                        oriented.compress(Bitmap.CompressFormat.PNG, 100, fos)
+                    }
+                    oriented.recycle()
+                    frameFiles.add(frameFile)
+                }
+                timeMs += frameIntervalMs
+                progressCallback((0.1f + 0.7f * ((timeMs - startMs).toFloat() / (endMs - startMs + 1).coerceAtLeast(1))).coerceAtMost(0.8f))
+            }
+            if (frameFiles.isEmpty()) throw IOException("No frames extracted")
+            ZipOutputStream(FileOutputStream(zipFile)).use { zos ->
+                for (f in frameFiles) {
+                    zos.putNextEntry(ZipEntry(f.name))
+                    FileInputStream(f).use { it.copyTo(zos) }
+                    zos.closeEntry()
+                }
+            }
+            progressCallback(1f)
+            return zipFile
+        } finally {
+            retriever.release()
+            tempDir.deleteRecursively()
         }
     }
 } 
