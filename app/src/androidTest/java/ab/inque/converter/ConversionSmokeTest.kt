@@ -105,6 +105,7 @@ class ConversionSmokeTest {
         val source = ConversionTestHelper.copyTestMp4()
         val output = ConversionTestHelper.convert(source, FileFormat.MP3)
         ConversionTestHelper.assertOutputExistsAndNonEmpty(output, "mp3")
+        assertTrue("MP3 should be at least 1 KB", output.length() > 1024)
         source.delete()
         output.delete()
     }

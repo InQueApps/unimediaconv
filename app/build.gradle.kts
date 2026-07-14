@@ -11,8 +11,8 @@ android {
         applicationId = "ab.inque.converter"
         minSdk = 27
         targetSdk = 35
-        versionCode = 24
-        versionName = "0.1.3"
+        versionCode = 25
+        versionName = "0.1.4"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 

@@ -4,7 +4,7 @@ import android.graphics.Bitmap
 import android.net.Uri
 
 /**
- * Loaded preview payload for [PreviewActivity] — never a full converted output file.
+ * Loaded preview payload for the floating preview panel — never a full converted output file.
  */
 sealed class PreviewContent {
     data class MediaClip(

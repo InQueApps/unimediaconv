@@ -51,4 +51,26 @@ class ConversionPreviewPlannerTest {
         assertEquals(1_000L, start)
         assertEquals(5_000L, end)
     }
+
+    @Test
+    fun videoToTxt_extractFrame_usesOcrText() {
+        val plan = ConversionPreviewPlanner.plan(
+            FileFormat.MP4,
+            FileFormat.TXT,
+            MediaToolOptions(extractFrame = true, extractFrameMs = 1_000L),
+            durationMs = 10_000L
+        )
+        assertEquals(PreviewStrategy.OCR_TEXT, plan.strategy)
+    }
+
+    @Test
+    fun videoToPdf_extractFrame_usesStillImage() {
+        val plan = ConversionPreviewPlanner.plan(
+            FileFormat.MP4,
+            FileFormat.PDF,
+            MediaToolOptions(extractFrame = true, extractFrameMs = 1_000L),
+            durationMs = 10_000L
+        )
+        assertEquals(PreviewStrategy.STILL_IMAGE, plan.strategy)
+    }
 }

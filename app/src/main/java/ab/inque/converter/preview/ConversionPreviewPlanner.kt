@@ -26,7 +26,7 @@ object ConversionPreviewPlanner {
                 source, toolOptions, subtitle, formatDisclaimer
             )
             FormatCategory.DOCUMENT -> planDocumentOutput(
-                source, target, subtitle, formatDisclaimer
+                source, target, toolOptions, subtitle, formatDisclaimer
             )
         }
     }
@@ -95,11 +95,16 @@ object ConversionPreviewPlanner {
     private fun planDocumentOutput(
         source: FileFormat,
         target: FileFormat,
+        toolOptions: MediaToolOptions,
         subtitle: String,
         formatDisclaimer: Boolean
     ): PreviewPlan {
         val disclaimer = disclaimerKey(formatDisclaimer, null)
         val strategy = when {
+            source.category == FormatCategory.VIDEO && toolOptions.hasExtractFrame && target == FileFormat.PDF ->
+                PreviewStrategy.STILL_IMAGE
+            source.category == FormatCategory.VIDEO && toolOptions.hasExtractFrame && target != FileFormat.PDF ->
+                PreviewStrategy.OCR_TEXT
             source.category == FormatCategory.IMAGE && target != FileFormat.PDF ->
                 PreviewStrategy.OCR_TEXT
             source.category == FormatCategory.VIDEO && target != FileFormat.PDF ->

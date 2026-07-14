@@ -1162,6 +1162,18 @@ class UniversalConverter {
         progressCallback: (Float) -> Unit,
         toolOptions: MediaToolOptions = MediaToolOptions()
     ): File {
+        if (toolOptions.hasExtractFrame) {
+            progressCallback(0.05f)
+            val frameFile = captureVideoFramePng(sourceFile, context, toolOptions)
+            try {
+                progressCallback(0.4f)
+                return convertImageToPdf(frameFile, FileFormat.PNG, context, { p ->
+                    progressCallback(0.4f + 0.6f * p)
+                }, null)
+            } finally {
+                frameFile.delete()
+            }
+        }
         progressCallback(0.05f)
         val retriever = MediaMetadataRetriever()
         try {
@@ -3293,6 +3305,24 @@ $body
             return convertVideoToFrameZip(sourceFile, context, progressCallback, toolOptions)
         }
         progressCallback(0.1f)
+        val frameFile = captureVideoFramePng(sourceFile, context, toolOptions)
+        try {
+            progressCallback(0.5f)
+            val result = convertImage(frameFile, FileFormat.PNG, targetFormat, context, { p ->
+                progressCallback(0.5f + 0.5f * p)
+            })
+            return result
+        } finally {
+            frameFile.delete()
+        }
+    }
+
+    /** Extract one oriented video frame to a temporary PNG (caller deletes). */
+    private fun captureVideoFramePng(
+        sourceFile: File,
+        context: Context,
+        toolOptions: MediaToolOptions
+    ): File {
         val retriever = MediaMetadataRetriever()
         try {
             retriever.setDataSource(sourceFile.absolutePath)
@@ -3318,13 +3348,7 @@ $body
                 oriented.compress(Bitmap.CompressFormat.PNG, 100, fos)
             }
             oriented.recycle()
-            progressCallback(0.5f)
-            val sourceFormat = FileFormat.PNG
-            val result = convertImage(frameFile, sourceFormat, targetFormat, context, { p ->
-                progressCallback(0.5f + 0.5f * p)
-            })
-            frameFile.delete()
-            return result
+            return frameFile
         } finally {
             retriever.release()
         }
@@ -3376,6 +3400,18 @@ $body
         progressCallback: (Float) -> Unit,
         toolOptions: MediaToolOptions
     ): File {
+        if (toolOptions.hasExtractFrame) {
+            progressCallback(0.05f)
+            val frameFile = captureVideoFramePng(sourceFile, context, toolOptions)
+            try {
+                progressCallback(0.2f)
+                return convertImageToDocument(frameFile, FileFormat.PNG, targetFormat, context) { p ->
+                    progressCallback(0.2f + 0.8f * p)
+                }
+            } finally {
+                frameFile.delete()
+            }
+        }
         val wavFile = File(context.cacheDir, "v2doc_${System.currentTimeMillis()}.wav")
         try {
             extractVideoToWav(sourceFile, wavFile, { p -> progressCallback(p * 0.45f) }, toolOptions)
