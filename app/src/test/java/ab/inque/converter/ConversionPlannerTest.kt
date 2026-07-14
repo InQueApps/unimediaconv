@@ -4,6 +4,7 @@ import ab.inque.converter.pipeline.ConversionPlanner
 import ab.inque.converter.pipeline.FormatCapabilities
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -150,5 +151,26 @@ class ConversionPlannerTest {
         val targets = ConversionPlanner.reachableTargets(FileFormat.MP3, FormatCapabilities.ALL)
         assertTrue(FileFormat.TXT in targets)
         assertTrue(FileFormat.DOCX in targets)
+    }
+
+    @Test
+    fun findPath_pngToTxt_nullWhenNoOcr() {
+        val caps = FormatCapabilities.ALL.copy(canOcr = false)
+        assertNull(ConversionPlanner.findPath(FileFormat.PNG, FileFormat.TXT, caps))
+    }
+
+    @Test
+    fun findPath_pngToPdf_worksWhenNoOcr() {
+        val caps = FormatCapabilities.ALL.copy(canOcr = false)
+        assertNotNull(ConversionPlanner.findPath(FileFormat.PNG, FileFormat.PDF, caps))
+    }
+
+    @Test
+    fun reachableTargets_png_excludesTextDocsWhenNoOcr() {
+        val caps = FormatCapabilities.ALL.copy(canOcr = false)
+        val targets = ConversionPlanner.reachableTargets(FileFormat.PNG, caps)
+        assertTrue(FileFormat.PDF in targets)
+        assertTrue(FileFormat.TXT !in targets)
+        assertTrue(FileFormat.DOCX !in targets)
     }
 }

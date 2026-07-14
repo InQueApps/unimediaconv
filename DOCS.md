@@ -17,6 +17,8 @@ Planning, product specs, QA matrices, and the Cursor skill for this app live **o
 | `FEATURES.md` | Product specifications |
 | `FEATURES_MATRIX.md` | Technical conversion matrix (auto-generated) |
 | `GAPS.md` | Open gaps (auto-generated) |
+| `CODE_GAPS.md` | Open gaps mapped to Kotlin source files |
+| `GAP_FIX_PLAN.md` | Gap fix + test expansion roadmap |
 | `PLAN.md` | Implementation roadmap |
 | `TEST_PLAN.md` | Full QA plan |
 | `GEOMETRY_FIX_PLAN.md` | Geometry fix tracking |

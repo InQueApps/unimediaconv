@@ -120,4 +120,50 @@ class ConversionSmokeTest {
         source.delete()
         output.delete()
     }
+
+    @Test
+    fun pngToJpg_transcodes() {
+        val source = File(
+            ConversionTestHelper.appContext().cacheDir,
+            "smoke_png_jpg_${System.currentTimeMillis()}.png"
+        )
+        ConversionTestHelper.writeMinimalPng(source)
+        val output = ConversionTestHelper.convert(source, FileFormat.JPG)
+        ConversionTestHelper.assertOutputExistsAndNonEmpty(output, "jpg")
+        source.delete()
+        output.delete()
+    }
+
+    @Test
+    fun mp4ToWav_extractsAudio() {
+        val source = ConversionTestHelper.copyTestMp4()
+        val output = ConversionTestHelper.convert(source, FileFormat.WAV)
+        ConversionTestHelper.assertOutputExistsAndNonEmpty(output, "wav")
+        source.delete()
+        output.delete()
+    }
+
+    @Test
+    fun txtToHtml_producesHtml() {
+        val source = ConversionTestHelper.copyAssetToCache(
+            "conversions/sample.txt",
+            "smoke_txt_html_${System.currentTimeMillis()}.txt"
+        )
+        val output = ConversionTestHelper.convert(source, FileFormat.HTML)
+        ConversionTestHelper.assertOutputExistsAndNonEmpty(output, "html")
+        source.delete()
+        output.delete()
+    }
+
+    @Test
+    fun htmlToTxt_producesText() {
+        val source = ConversionTestHelper.copyAssetToCache(
+            "conversions/sample.html",
+            "smoke_html_txt_${System.currentTimeMillis()}.html"
+        )
+        val output = ConversionTestHelper.convert(source, FileFormat.TXT)
+        ConversionTestHelper.assertOutputExistsAndNonEmpty(output, "txt")
+        source.delete()
+        output.delete()
+    }
 }

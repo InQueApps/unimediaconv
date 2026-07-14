@@ -1018,26 +1018,10 @@ class MainActivity : AppCompatActivity() {
 
     /** Returns (url, mimeType) for the media to download, or null if none found. Uses already-fetched HTML. */
     private fun extractMediaUrlFromPageContent(html: String, pageUrl: String): Pair<String, String?>? {
-        if (isYouTubeWatchUrl(pageUrl)) {
+        if (LinkPageMediaExtractor.isYouTubeWatchUrl(pageUrl)) {
             extractYouTubeStreamUrlAndMime(html)?.let { return it }
         }
-        val doc = Jsoup.parse(html, pageUrl)
-        val videoSrc = doc.select("video").first()?.attr("abs:src")
-            ?: doc.select("video source").first()?.attr("abs:src")
-            ?: doc.select("video").first()?.attr("abs:data-src")
-        if (!videoSrc.isNullOrBlank() && looksLikeDirectMediaUrl(videoSrc)) return videoSrc to null
-        val audioSrc = doc.select("audio").first()?.attr("abs:src")
-            ?: doc.select("audio source").first()?.attr("abs:src")
-            ?: doc.select("audio").first()?.attr("abs:data-src")
-        if (!audioSrc.isNullOrBlank() && looksLikeDirectMediaUrl(audioSrc)) return audioSrc to null
-        val ogVideo = doc.select("meta[property=og:video], meta[property=og:video:url]").first()?.attr("content")
-        if (!ogVideo.isNullOrBlank() && looksLikeDirectMediaUrl(ogVideo)) return ogVideo to null
-        val ogAudio = doc.select("meta[property=og:audio]").first()?.attr("content")
-        if (!ogAudio.isNullOrBlank() && looksLikeDirectMediaUrl(ogAudio)) return ogAudio to null
-        val pdfHref = doc.select("a[href$=.pdf]").first()?.attr("abs:href")
-            ?: doc.select("embed[type=application/pdf]").first()?.attr("abs:src")
-            ?: doc.select("a[href*=.pdf]").first()?.attr("abs:href")
-        return pdfHref?.takeIf { it.isNotBlank() }?.let { it to null }
+        return LinkPageMediaExtractor.extractDirectMedia(html, pageUrl)
     }
 
     /** Saves HTML to cache with base URL so PDF conversion can resolve images and formatting. */
@@ -1059,11 +1043,6 @@ class MainActivity : AppCompatActivity() {
         "${u.protocol}://${u.host}/"
     } catch (e: Exception) {
         null
-    }
-
-    private fun isYouTubeWatchUrl(url: String): Boolean {
-        val lower = url.lowercase()
-        return lower.contains("youtube.com/watch") || lower.contains("youtu.be/")
     }
 
     /**
@@ -1161,18 +1140,6 @@ class MainActivity : AppCompatActivity() {
         } catch (e: Exception) {
             null
         }
-    }
-
-    /** True if URL looks like a direct media file (not a watch/embed page). */
-    private fun looksLikeDirectMediaUrl(url: String): Boolean {
-        val lower = url.lowercase()
-        if (lower.contains("youtube.com/watch") || lower.contains("youtu.be/") ||
-            lower.contains("youtube.com/embed") || lower.contains("vimeo.com/")
-        ) return false
-        val path = lower.substringAfter(".com", "").substringAfter(".org", "").substringBefore("?")
-        return path.endsWith(".mp4") || path.endsWith(".webm") || path.endsWith(".mp3") ||
-            path.endsWith(".m4a") || path.endsWith(".ogg") || path.endsWith(".wav") ||
-            path.endsWith(".flac") || path.endsWith(".avi") || path.endsWith(".mov")
     }
 
     private fun fetchPageHtml(urlString: String): String? {

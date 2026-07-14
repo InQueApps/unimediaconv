@@ -118,6 +118,7 @@ object ConversionPlanner {
         return when (source.category) {
             FormatCategory.AUDIO -> caps.canTranscribe
             FormatCategory.VIDEO -> target == FileFormat.PDF || caps.canTranscribe
+            FormatCategory.IMAGE -> target == FileFormat.PDF || caps.canOcr
             else -> true
         }
     }
