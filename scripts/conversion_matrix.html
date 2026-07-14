@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>AnyConvert — Conversion Matrix (600 pairs)</title>
+<style>
+:root { --bg:#0f0f1a; --fg:#e8e8f0; --muted:#8888aa; --accent:#6c9eff; }
+* { box-sizing:border-box; }
+body { font-family:system-ui,sans-serif; background:var(--bg); color:var(--fg); margin:0; padding:1rem 1.5rem 2rem; }
+h1 { margin:0 0 .25rem; font-size:1.5rem; }
+.sub { color:var(--muted); margin:0 0 1rem; }
+.legend { display:flex; flex-wrap:wrap; gap:1rem; margin:1rem 0; font-size:.85rem; align-items:center; }
+.swatch { display:inline-block; width:14px; height:14px; border-radius:3px; vertical-align:middle; margin-right:4px; }
+.codes { color:var(--muted); margin-left:auto; }
+.hint { color:var(--muted); font-size:.9rem; }
+.grid-wrap { overflow:auto; max-height:75vh; border:1px solid #333; border-radius:8px; margin:1rem 0; }
+table.matrix { border-collapse:collapse; font-size:11px; }
+table.matrix th, table.matrix td { border:1px solid #2a2a3a; padding:3px 4px; text-align:center; min-width:28px; }
+.corner { position:sticky; left:0; top:0; z-index:3; background:#1a1a2e; }
+.col-hdr { position:sticky; top:0; z-index:2; background:#1a1a2e; font-weight:600; writing-mode:vertical-rl; transform:rotate(180deg); height:72px; }
+.row-hdr { position:sticky; left:0; z-index:1; background:#1a1a2e; font-weight:600; text-align:right; padding-right:6px; }
+.cell-native { background:#2d6a4f; color:#fff; font-weight:600; cursor:help; }
+.cell-degraded { background:#e9c46a; color:#1a1a2e; font-weight:600; cursor:help; }
+.cell-creative { background:#e76f51; color:#fff; font-weight:600; cursor:help; }
+.cell-none { background:#1e1e2e; color:#444; }
+.cell-diag { background:#252535; color:#555; }
+.cell-tested { box-shadow:inset 0 0 0 2px var(--accent); }
+.cat-matrix { margin:1.5rem 0; }
+.cat-table th, .cat-table td { border:1px solid #333; padding:6px 10px; text-align:center; }
+.cat-table .heat { color:#fff; font-weight:600; min-width:48px; }
+.cat-table .sum { font-weight:700; background:#1a1a2e; }
+.tests { margin-top:2rem; }
+.info td { padding:6px 12px; border-bottom:1px solid #333; }
+footer { margin-top:2rem; color:var(--muted); font-size:.8rem; }</style></head><body>
+<header>
+<h1>AnyConvert conversion matrix</h1>
+<p class="sub">26 formats · <strong>600</strong> directed pairs (max device, API 33+ STT) · generated from <code>ConversionPlanner</code></p>
+<div class="legend">
+  <span><i class="swatch cell-native"></i> Native</span>
+  <span><i class="swatch cell-degraded"></i> Simplified</span>
+  <span><i class="swatch cell-creative"></i> Creative</span>
+  <span><i class="swatch cell-tested"></i> E2E smoke tested</span>
+  <span class="codes">Cell codes: N / D / C</span>
+</div>
+<section class="cat-matrix"><h2>Category cross-matrix (pair counts)</h2>
+<table class="cat-table"><thead><tr><th></th>
+<th>document</th>
+<th>image</th>
+<th>video</th>
+<th>audio</th>
+<th>Σ</th></tr></thead><tbody>
+<tr><th>document</th>
+<td class="heat" style="background:color-mix(in srgb, #2d6a4f 61%, #1a1a2e)">30</td>
+<td class="heat" style="background:color-mix(in srgb, #2d6a4f 85%, #1a1a2e)">42</td>
+<td class="heat" style="background:color-mix(in srgb, #2d6a4f 85%, #1a1a2e)">42</td>
+<td class="heat" style="background:color-mix(in srgb, #2d6a4f 61%, #1a1a2e)">30</td>
+<td class="sum">144</td></tr>
+<tr><th>image</th>
+<td class="heat" style="background:color-mix(in srgb, #2d6a4f 85%, #1a1a2e)">42</td>
+<td class="heat" style="background:color-mix(in srgb, #2d6a4f 85%, #1a1a2e)">42</td>
+<td class="heat" style="background:color-mix(in srgb, #2d6a4f 100%, #1a1a2e)">49</td>
+<td class="heat" style="background:color-mix(in srgb, #2d6a4f 71%, #1a1a2e)">35</td>
+<td class="sum">168</td></tr>
+<tr><th>video</th>
+<td class="heat" style="background:color-mix(in srgb, #2d6a4f 85%, #1a1a2e)">42</td>
+<td class="heat" style="background:color-mix(in srgb, #2d6a4f 100%, #1a1a2e)">49</td>
+<td class="heat" style="background:color-mix(in srgb, #2d6a4f 85%, #1a1a2e)">42</td>
+<td class="heat" style="background:color-mix(in srgb, #2d6a4f 71%, #1a1a2e)">35</td>
+<td class="sum">168</td></tr>
+<tr><th>audio</th>
+<td class="heat" style="background:color-mix(in srgb, #2d6a4f 61%, #1a1a2e)">30</td>
+<td class="heat" style="background:color-mix(in srgb, #2d6a4f 71%, #1a1a2e)">35</td>
+<td class="heat" style="background:color-mix(in srgb, #2d6a4f 71%, #1a1a2e)">35</td>
+<td class="heat" style="background:color-mix(in srgb, #2d6a4f 40%, #1a1a2e)">20</td>
+<td class="sum">120</td></tr>
+</tbody></table></section>
+
+</header>
+<main>
+<p class="hint">Scroll the grid. Hover a cell for route detail. Blue ring = E2E smoke tested on device.</p>
+<div class="grid-wrap"><table class="matrix">
+<thead><tr><th class="corner">From \ To</th>
+<th class="col-hdr" title="PDF Document">PDF</th>
+<th class="col-hdr" title="EPUB Book">EPUB</th>
+<th class="col-hdr" title="Word Document">DOCX</th>
+<th class="col-hdr" title="Text File">TXT</th>
+<th class="col-hdr" title="Rich Text Format">RTF</th>
+<th class="col-hdr" title="HTML Document">HTML</th>
+<th class="col-hdr" title="JPEG Image">JPG</th>
+<th class="col-hdr" title="JPEG Image">JPEG</th>
+<th class="col-hdr" title="PNG Image">PNG</th>
+<th class="col-hdr" title="WebP Image">WEBP</th>
+<th class="col-hdr" title="HEIC Image">HEIC</th>
+<th class="col-hdr" title="Bitmap Image">BMP</th>
+<th class="col-hdr" title="TIFF Image">TIFF</th>
+<th class="col-hdr" title="MP4 Video">MP4</th>
+<th class="col-hdr" title="AVI Video">AVI</th>
+<th class="col-hdr" title="MOV Video">MOV</th>
+<th class="col-hdr" title="MKV Video">MKV</th>
+<th class="col-hdr" title="WebM Video">WEBM</th>
+<th class="col-hdr" title="3GP Video">3GP</th>
+<th class="col-hdr" title="GIF Animation">GIF</th>
+<th class="col-hdr" title="MP3 Audio">MP3</th>
+<th class="col-hdr" title="WAV Audio">WAV</th>
+<th class="col-hdr" title="M4A Audio">M4A</th>
+<th class="col-hdr" title="OGG Audio">OGG</th>
+<th class="col-hdr" title="FLAC Audio">FLAC</th>
+</tr></thead><tbody>
+<tr>
+<th class="row-hdr" title="PDF Document">PDF</th>
+<td class="cell-diag">—</td>
+<td class="cell-degraded" title="PDF Document → EPUB Book\nSimplified · Transcode\nPDF → EPUB">D</td>
+<td class="cell-degraded" title="PDF Document → Word Document\nSimplified · Transcode\nPDF → DOCX">D</td>
+<td class="cell-degraded" title="PDF Document → Text File\nSimplified · Transcode\nPDF → TXT">D</td>
+<td class="cell-degraded" title="PDF Document → Rich Text Format\nSimplified · Transcode\nPDF → RTF">D</td>
+<td class="cell-degraded" title="PDF Document → HTML Document\nSimplified · Transcode\nPDF → HTML">D</td>
+<td class="cell-native" title="PDF Document → JPEG Image\nNative · Bridge\nPDF → JPG">N</td>
+<td class="cell-native" title="PDF Document → JPEG Image\nNative · Bridge\nPDF → JPEG">N</td>
+<td class="cell-native" title="PDF Document → PNG Image\nNative · Bridge\nPDF → PNG">N</td>
+<td class="cell-native" title="PDF Document → WebP Image\nNative · Bridge\nPDF → WEBP">N</td>
+<td class="cell-native" title="PDF Document → HEIC Image\nNative · Bridge\nPDF → HEIC">N</td>
+<td class="cell-native" title="PDF Document → Bitmap Image\nNative · Bridge\nPDF → BMP">N</td>
+<td class="cell-native" title="PDF Document → TIFF Image\nNative · Bridge\nPDF → TIFF">N</td>
+<td class="cell-creative" title="PDF Document → MP4 Video\nCreative · Bridge\nPDF → MP4">C</td>
+<td class="cell-creative" title="PDF Document → AVI Video\nCreative · Bridge\nPDF → AVI">C</td>
+<td class="cell-creative" title="PDF Document → MOV Video\nCreative · Bridge\nPDF → MOV">C</td>
+<td class="cell-creative" title="PDF Document → MKV Video\nCreative · Bridge\nPDF → MKV">C</td>
+<td class="cell-creative" title="PDF Document → WebM Video\nCreative · Bridge\nPDF → WEBM">C</td>
+<td class="cell-creative" title="PDF Document → 3GP Video\nCreative · Bridge\nPDF → 3GP">C</td>
+<td class="cell-creative" title="PDF Document → GIF Animation\nCreative · Bridge\nPDF → GIF">C</td>
+<td class="cell-degraded" title="PDF Document → MP3 Audio\nSimplified · TTS\nPDF → MP3">D</td>
+<td class="cell-degraded" title="PDF Document → WAV Audio\nSimplified · TTS\nPDF → WAV">D</td>
+<td class="cell-degraded" title="PDF Document → M4A Audio\nSimplified · TTS\nPDF → M4A">D</td>
+<td class="cell-degraded" title="PDF Document → OGG Audio\nSimplified · TTS\nPDF → OGG">D</td>
+<td class="cell-degraded" title="PDF Document → FLAC Audio\nSimplified · TTS\nPDF → FLAC">D</td>
+</tr>
+<tr>
+<th class="row-hdr" title="EPUB Book">EPUB</th>
+<td class="cell-degraded" title="EPUB Book → PDF Document\nSimplified · Transcode\nEPUB → PDF">D</td>
+<td class="cell-diag">—</td>
+<td class="cell-degraded" title="EPUB Book → Word Document\nSimplified · Transcode\nEPUB → DOCX">D</td>
+<td class="cell-degraded" title="EPUB Book → Text File\nSimplified · Transcode\nEPUB → TXT">D</td>
+<td class="cell-degraded" title="EPUB Book → Rich Text Format\nSimplified · Transcode\nEPUB → RTF">D</td>
+<td class="cell-degraded" title="EPUB Book → HTML Document\nSimplified · Transcode\nEPUB → HTML">D</td>
+<td class="cell-native" title="EPUB Book → JPEG Image\nNative · Multi-hop\nEPUB → PDF → JPG">N</td>
+<td class="cell-native" title="EPUB Book → JPEG Image\nNative · Multi-hop\nEPUB → PDF → JPEG">N</td>
+<td class="cell-native" title="EPUB Book → PNG Image\nNative · Multi-hop\nEPUB → PDF → PNG">N</td>
+<td class="cell-native" title="EPUB Book → WebP Image\nNative · Multi-hop\nEPUB → PDF → WEBP">N</td>
+<td class="cell-native" title="EPUB Book → HEIC Image\nNative · Multi-hop\nEPUB → PDF → HEIC">N</td>
+<td class="cell-native" title="EPUB Book → Bitmap Image\nNative · Multi-hop\nEPUB → PDF → BMP">N</td>
+<td class="cell-native" title="EPUB Book → TIFF Image\nNative · Multi-hop\nEPUB → PDF → TIFF">N</td>
+<td class="cell-creative" title="EPUB Book → MP4 Video\nCreative · Bridge\nEPUB → MP4">C</td>
+<td class="cell-creative" title="EPUB Book → AVI Video\nCreative · Bridge\nEPUB → AVI">C</td>
+<td class="cell-creative" title="EPUB Book → MOV Video\nCreative · Bridge\nEPUB → MOV">C</td>
+<td class="cell-creative" title="EPUB Book → MKV Video\nCreative · Bridge\nEPUB → MKV">C</td>
+<td class="cell-creative" title="EPUB Book → WebM Video\nCreative · Bridge\nEPUB → WEBM">C</td>
+<td class="cell-creative" title="EPUB Book → 3GP Video\nCreative · Bridge\nEPUB → 3GP">C</td>
+<td class="cell-creative" title="EPUB Book → GIF Animation\nCreative · Bridge\nEPUB → GIF">C</td>
+<td class="cell-degraded" title="EPUB Book → MP3 Audio\nSimplified · TTS\nEPUB → MP3">D</td>
+<td class="cell-degraded" title="EPUB Book → WAV Audio\nSimplified · TTS\nEPUB → WAV">D</td>
+<td class="cell-degraded" title="EPUB Book → M4A Audio\nSimplified · TTS\nEPUB → M4A">D</td>
+<td class="cell-degraded" title="EPUB Book → OGG Audio\nSimplified · TTS\nEPUB → OGG">D</td>
+<td class="cell-degraded" title="EPUB Book → FLAC Audio\nSimplified · TTS\nEPUB → FLAC">D</td>
+</tr>
+<tr>
+<th class="row-hdr" title="Word Document">DOCX</th>
+<td class="cell-degraded" title="Word Document → PDF Document\nSimplified · Transcode\nDOCX → PDF">D</td>
+<td class="cell-degraded" title="Word Document → EPUB Book\nSimplified · Transcode\nDOCX → EPUB">D</td>
+<td class="cell-diag">—</td>
+<td class="cell-degraded" title="Word Document → Text File\nSimplified · Transcode\nDOCX → TXT">D</td>
+<td class="cell-degraded" title="Word Document → Rich Text Format\nSimplified · Transcode\nDOCX → RTF">D</td>
+<td class="cell-degraded" title="Word Document → HTML Document\nSimplified · Transcode\nDOCX → HTML">D</td>
+<td class="cell-native" title="Word Document → JPEG Image\nNative · Multi-hop\nDOCX → PDF → JPG">N</td>
+<td class="cell-native" title="Word Document → JPEG Image\nNative · Multi-hop\nDOCX → PDF → JPEG">N</td>
+<td class="cell-native" title="Word Document → PNG Image\nNative · Multi-hop\nDOCX → PDF → PNG">N</td>
+<td class="cell-native" title="Word Document → WebP Image\nNative · Multi-hop\nDOCX → PDF → WEBP">N</td>
+<td class="cell-native" title="Word Document → HEIC Image\nNative · Multi-hop\nDOCX → PDF → HEIC">N</td>
+<td class="cell-native" title="Word Document → Bitmap Image\nNative · Multi-hop\nDOCX → PDF → BMP">N</td>
+<td class="cell-native" title="Word Document → TIFF Image\nNative · Multi-hop\nDOCX → PDF → TIFF">N</td>
+<td class="cell-creative" title="Word Document → MP4 Video\nCreative · Bridge\nDOCX → MP4">C</td>
+<td class="cell-creative" title="Word Document → AVI Video\nCreative · Bridge\nDOCX → AVI">C</td>
+<td class="cell-creative" title="Word Document → MOV Video\nCreative · Bridge\nDOCX → MOV">C</td>
+<td class="cell-creative" title="Word Document → MKV Video\nCreative · Bridge\nDOCX → MKV">C</td>
+<td class="cell-creative" title="Word Document → WebM Video\nCreative · Bridge\nDOCX → WEBM">C</td>
+<td class="cell-creative" title="Word Document → 3GP Video\nCreative · Bridge\nDOCX → 3GP">C</td>
+<td class="cell-creative" title="Word Document → GIF Animation\nCreative · Bridge\nDOCX → GIF">C</td>
+<td class="cell-degraded" title="Word Document → MP3 Audio\nSimplified · TTS\nDOCX → MP3">D</td>
+<td class="cell-degraded" title="Word Document → WAV Audio\nSimplified · TTS\nDOCX → WAV">D</td>
+<td class="cell-degraded" title="Word Document → M4A Audio\nSimplified · TTS\nDOCX → M4A">D</td>
+<td class="cell-degraded" title="Word Document → OGG Audio\nSimplified · TTS\nDOCX → OGG">D</td>
+<td class="cell-degraded" title="Word Document → FLAC Audio\nSimplified · TTS\nDOCX → FLAC">D</td>
+</tr>
+<tr>
+<th class="row-hdr" title="Text File">TXT</th>
+<td class="cell-degraded cell-tested" title="Text File → PDF Document\nSimplified · Transcode\nTXT → PDF">D</td>
+<td class="cell-degraded" title="Text File → EPUB Book\nSimplified · Transcode\nTXT → EPUB">D</td>
+<td class="cell-degraded cell-tested" title="Text File → Word Document\nSimplified · Transcode\nTXT → DOCX">D</td>
+<td class="cell-diag">—</td>
+<td class="cell-degraded" title="Text File → Rich Text Format\nSimplified · Transcode\nTXT → RTF">D</td>
+<td class="cell-degraded cell-tested" title="Text File → HTML Document\nSimplified · Transcode\nTXT → HTML">D</td>
+<td class="cell-native" title="Text File → JPEG Image\nNative · Multi-hop\nTXT → PDF → JPG">N</td>
+<td class="cell-native" title="Text File → JPEG Image\nNative · Multi-hop\nTXT → PDF → JPEG">N</td>
+<td class="cell-native" title="Text File → PNG Image\nNative · Multi-hop\nTXT → PDF → PNG">N</td>
+<td class="cell-native" title="Text File → WebP Image\nNative · Multi-hop\nTXT → PDF → WEBP">N</td>
+<td class="cell-native" title="Text File → HEIC Image\nNative · Multi-hop\nTXT → PDF → HEIC">N</td>
+<td class="cell-native" title="Text File → Bitmap Image\nNative · Multi-hop\nTXT → PDF → BMP">N</td>
+<td class="cell-native" title="Text File → TIFF Image\nNative · Multi-hop\nTXT → PDF → TIFF">N</td>
+<td class="cell-creative" title="Text File → MP4 Video\nCreative · Bridge\nTXT → MP4">C</td>
+<td class="cell-creative" title="Text File → AVI Video\nCreative · Bridge\nTXT → AVI">C</td>
+<td class="cell-creative" title="Text File → MOV Video\nCreative · Bridge\nTXT → MOV">C</td>
+<td class="cell-creative" title="Text File → MKV Video\nCreative · Bridge\nTXT → MKV">C</td>
+<td class="cell-creative" title="Text File → WebM Video\nCreative · Bridge\nTXT → WEBM">C</td>
+<td class="cell-creative" title="Text File → 3GP Video\nCreative · Bridge\nTXT → 3GP">C</td>
+<td class="cell-creative" title="Text File → GIF Animation\nCreative · Bridge\nTXT → GIF">C</td>
+<td class="cell-degraded cell-tested" title="Text File → MP3 Audio\nSimplified · TTS\nTXT → MP3">D</td>
+<td class="cell-degraded" title="Text File → WAV Audio\nSimplified · TTS\nTXT → WAV">D</td>
+<td class="cell-degraded" title="Text File → M4A Audio\nSimplified · TTS\nTXT → M4A">D</td>
+<td class="cell-degraded" title="Text File → OGG Audio\nSimplified · TTS\nTXT → OGG">D</td>
+<td class="cell-degraded" title="Text File → FLAC Audio\nSimplified · TTS\nTXT → FLAC">D</td>
+</tr>
+<tr>
+<th class="row-hdr" title="Rich Text Format">RTF</th>
+<td class="cell-degraded cell-tested" title="Rich Text Format → PDF Document\nSimplified · Transcode\nRTF → PDF">D</td>
+<td class="cell-degraded" title="Rich Text Format → EPUB Book\nSimplified · Transcode\nRTF → EPUB">D</td>
+<td class="cell-degraded" title="Rich Text Format → Word Document\nSimplified · Transcode\nRTF → DOCX">D</td>
+<td class="cell-degraded" title="Rich Text Format → Text File\nSimplified · Transcode\nRTF → TXT">D</td>
+<td class="cell-diag">—</td>
+<td class="cell-degraded" title="Rich Text Format → HTML Document\nSimplified · Transcode\nRTF → HTML">D</td>
+<td class="cell-native" title="Rich Text Format → JPEG Image\nNative · Multi-hop\nRTF → PDF → JPG">N</td>
+<td class="cell-native" title="Rich Text Format → JPEG Image\nNative · Multi-hop\nRTF → PDF → JPEG">N</td>
+<td class="cell-native" title="Rich Text Format → PNG Image\nNative · Multi-hop\nRTF → PDF → PNG">N</td>
+<td class="cell-native" title="Rich Text Format → WebP Image\nNative · Multi-hop\nRTF → PDF → WEBP">N</td>
+<td class="cell-native" title="Rich Text Format → HEIC Image\nNative · Multi-hop\nRTF → PDF → HEIC">N</td>
+<td class="cell-native" title="Rich Text Format → Bitmap Image\nNative · Multi-hop\nRTF → PDF → BMP">N</td>
+<td class="cell-native" title="Rich Text Format → TIFF Image\nNative · Multi-hop\nRTF → PDF → TIFF">N</td>
+<td class="cell-creative" title="Rich Text Format → MP4 Video\nCreative · Bridge\nRTF → MP4">C</td>
+<td class="cell-creative" title="Rich Text Format → AVI Video\nCreative · Bridge\nRTF → AVI">C</td>
+<td class="cell-creative" title="Rich Text Format → MOV Video\nCreative · Bridge\nRTF → MOV">C</td>
+<td class="cell-creative" title="Rich Text Format → MKV Video\nCreative · Bridge\nRTF → MKV">C</td>
+<td class="cell-creative" title="Rich Text Format → WebM Video\nCreative · Bridge\nRTF → WEBM">C</td>
+<td class="cell-creative" title="Rich Text Format → 3GP Video\nCreative · Bridge\nRTF → 3GP">C</td>
+<td class="cell-creative" title="Rich Text Format → GIF Animation\nCreative · Bridge\nRTF → GIF">C</td>
+<td class="cell-degraded" title="Rich Text Format → MP3 Audio\nSimplified · TTS\nRTF → MP3">D</td>
+<td class="cell-degraded" title="Rich Text Format → WAV Audio\nSimplified · TTS\nRTF → WAV">D</td>
+<td class="cell-degraded" title="Rich Text Format → M4A Audio\nSimplified · TTS\nRTF → M4A">D</td>
+<td class="cell-degraded" title="Rich Text Format → OGG Audio\nSimplified · TTS\nRTF → OGG">D</td>
+<td class="cell-degraded" title="Rich Text Format → FLAC Audio\nSimplified · TTS\nRTF → FLAC">D</td>
+</tr>
+<tr>
+<th class="row-hdr" title="HTML Document">HTML</th>
+<td class="cell-degraded cell-tested" title="HTML Document → PDF Document\nSimplified · Transcode\nHTML → PDF">D</td>
+<td class="cell-degraded" title="HTML Document → EPUB Book\nSimplified · Transcode\nHTML → EPUB">D</td>
+<td class="cell-degraded cell-tested" title="HTML Document → Word Document\nSimplified · Transcode\nHTML → DOCX">D</td>
+<td class="cell-degraded cell-tested" title="HTML Document → Text File\nSimplified · Transcode\nHTML → TXT">D</td>
+<td class="cell-degraded cell-tested" title="HTML Document → Rich Text Format\nSimplified · Transcode\nHTML → RTF">D</td>
+<td class="cell-diag">—</td>
+<td class="cell-native" title="HTML Document → JPEG Image\nNative · Multi-hop\nHTML → PDF → JPG">N</td>
+<td class="cell-native" title="HTML Document → JPEG Image\nNative · Multi-hop\nHTML → PDF → JPEG">N</td>
+<td class="cell-native" title="HTML Document → PNG Image\nNative · Multi-hop\nHTML → PDF → PNG">N</td>
+<td class="cell-native" title="HTML Document → WebP Image\nNative · Multi-hop\nHTML → PDF → WEBP">N</td>
+<td class="cell-native" title="HTML Document → HEIC Image\nNative · Multi-hop\nHTML → PDF → HEIC">N</td>
+<td class="cell-native" title="HTML Document → Bitmap Image\nNative · Multi-hop\nHTML → PDF → BMP">N</td>
+<td class="cell-native" title="HTML Document → TIFF Image\nNative · Multi-hop\nHTML → PDF → TIFF">N</td>
+<td class="cell-creative" title="HTML Document → MP4 Video\nCreative · Bridge\nHTML → MP4">C</td>
+<td class="cell-creative" title="HTML Document → AVI Video\nCreative · Bridge\nHTML → AVI">C</td>
+<td class="cell-creative" title="HTML Document → MOV Video\nCreative · Bridge\nHTML → MOV">C</td>
+<td class="cell-creative" title="HTML Document → MKV Video\nCreative · Bridge\nHTML → MKV">C</td>
+<td class="cell-creative" title="HTML Document → WebM Video\nCreative · Bridge\nHTML → WEBM">C</td>
+<td class="cell-creative" title="HTML Document → 3GP Video\nCreative · Bridge\nHTML → 3GP">C</td>
+<td class="cell-creative" title="HTML Document → GIF Animation\nCreative · Bridge\nHTML → GIF">C</td>
+<td class="cell-degraded" title="HTML Document → MP3 Audio\nSimplified · TTS\nHTML → MP3">D</td>
+<td class="cell-degraded" title="HTML Document → WAV Audio\nSimplified · TTS\nHTML → WAV">D</td>
+<td class="cell-degraded" title="HTML Document → M4A Audio\nSimplified · TTS\nHTML → M4A">D</td>
+<td class="cell-degraded" title="HTML Document → OGG Audio\nSimplified · TTS\nHTML → OGG">D</td>
+<td class="cell-degraded" title="HTML Document → FLAC Audio\nSimplified · TTS\nHTML → FLAC">D</td>
+</tr>
+<tr>
+<th class="row-hdr" title="JPEG Image">JPG</th>
+<td class="cell-creative" title="JPEG Image → PDF Document\nCreative · OCR\nJPG → PDF">C</td>
+<td class="cell-creative" title="JPEG Image → EPUB Book\nCreative · OCR\nJPG → EPUB">C</td>
+<td class="cell-creative" title="JPEG Image → Word Document\nCreative · OCR\nJPG → DOCX">C</td>
+<td class="cell-creative" title="JPEG Image → Text File\nCreative · OCR\nJPG → TXT">C</td>
+<td class="cell-creative" title="JPEG Image → Rich Text Format\nCreative · OCR\nJPG → RTF">C</td>
+<td class="cell-creative" title="JPEG Image → HTML Document\nCreative · OCR\nJPG → HTML">C</td>
+<td class="cell-diag">—</td>
+<td class="cell-native" title="JPEG Image → JPEG Image\nNative · Transcode\nJPG → JPEG">N</td>
+<td class="cell-native" title="JPEG Image → PNG Image\nNative · Transcode\nJPG → PNG">N</td>
+<td class="cell-native" title="JPEG Image → WebP Image\nNative · Transcode\nJPG → WEBP">N</td>
+<td class="cell-native" title="JPEG Image → HEIC Image\nNative · Transcode\nJPG → HEIC">N</td>
+<td class="cell-native" title="JPEG Image → Bitmap Image\nNative · Transcode\nJPG → BMP">N</td>
+<td class="cell-native" title="JPEG Image → TIFF Image\nNative · Transcode\nJPG → TIFF">N</td>
+<td class="cell-creative" title="JPEG Image → MP4 Video\nCreative · Bridge\nJPG → MP4">C</td>
+<td class="cell-creative" title="JPEG Image → AVI Video\nCreative · Bridge\nJPG → AVI">C</td>
+<td class="cell-creative" title="JPEG Image → MOV Video\nCreative · Bridge\nJPG → MOV">C</td>
+<td class="cell-creative" title="JPEG Image → MKV Video\nCreative · Bridge\nJPG → MKV">C</td>
+<td class="cell-creative" title="JPEG Image → WebM Video\nCreative · Bridge\nJPG → WEBM">C</td>
+<td class="cell-creative" title="JPEG Image → 3GP Video\nCreative · Bridge\nJPG → 3GP">C</td>
+<td class="cell-creative" title="JPEG Image → GIF Animation\nCreative · Bridge\nJPG → GIF">C</td>
+<td class="cell-creative" title="JPEG Image → MP3 Audio\nCreative · Bridge\nJPG → MP3">C</td>
+<td class="cell-creative" title="JPEG Image → WAV Audio\nCreative · Bridge\nJPG → WAV">C</td>
+<td class="cell-creative" title="JPEG Image → M4A Audio\nCreative · Bridge\nJPG → M4A">C</td>
+<td class="cell-creative" title="JPEG Image → OGG Audio\nCreative · Bridge\nJPG → OGG">C</td>
+<td class="cell-creative" title="JPEG Image → FLAC Audio\nCreative · Bridge\nJPG → FLAC">C</td>
+</tr>
+<tr>
+<th class="row-hdr" title="JPEG Image">JPEG</th>
+<td class="cell-creative" title="JPEG Image → PDF Document\nCreative · OCR\nJPEG → PDF">C</td>
+<td class="cell-creative" title="JPEG Image → EPUB Book\nCreative · OCR\nJPEG → EPUB">C</td>
+<td class="cell-creative" title="JPEG Image → Word Document\nCreative · OCR\nJPEG → DOCX">C</td>
+<td class="cell-creative" title="JPEG Image → Text File\nCreative · OCR\nJPEG → TXT">C</td>
+<td class="cell-creative" title="JPEG Image → Rich Text Format\nCreative · OCR\nJPEG → RTF">C</td>
+<td class="cell-creative" title="JPEG Image → HTML Document\nCreative · OCR\nJPEG → HTML">C</td>
+<td class="cell-native" title="JPEG Image → JPEG Image\nNative · Transcode\nJPEG → JPG">N</td>
+<td class="cell-diag">—</td>
+<td class="cell-native" title="JPEG Image → PNG Image\nNative · Transcode\nJPEG → PNG">N</td>
+<td class="cell-native" title="JPEG Image → WebP Image\nNative · Transcode\nJPEG → WEBP">N</td>
+<td class="cell-native" title="JPEG Image → HEIC Image\nNative · Transcode\nJPEG → HEIC">N</td>
+<td class="cell-native" title="JPEG Image → Bitmap Image\nNative · Transcode\nJPEG → BMP">N</td>
+<td class="cell-native" title="JPEG Image → TIFF Image\nNative · Transcode\nJPEG → TIFF">N</td>
+<td class="cell-creative" title="JPEG Image → MP4 Video\nCreative · Bridge\nJPEG → MP4">C</td>
+<td class="cell-creative" title="JPEG Image → AVI Video\nCreative · Bridge\nJPEG → AVI">C</td>
+<td class="cell-creative" title="JPEG Image → MOV Video\nCreative · Bridge\nJPEG → MOV">C</td>
+<td class="cell-creative" title="JPEG Image → MKV Video\nCreative · Bridge\nJPEG → MKV">C</td>
+<td class="cell-creative" title="JPEG Image → WebM Video\nCreative · Bridge\nJPEG → WEBM">C</td>
+<td class="cell-creative" title="JPEG Image → 3GP Video\nCreative · Bridge\nJPEG → 3GP">C</td>
+<td class="cell-creative" title="JPEG Image → GIF Animation\nCreative · Bridge\nJPEG → GIF">C</td>
+<td class="cell-creative" title="JPEG Image → MP3 Audio\nCreative · Bridge\nJPEG → MP3">C</td>
+<td class="cell-creative" title="JPEG Image → WAV Audio\nCreative · Bridge\nJPEG → WAV">C</td>
+<td class="cell-creative" title="JPEG Image → M4A Audio\nCreative · Bridge\nJPEG → M4A">C</td>
+<td class="cell-creative" title="JPEG Image → OGG Audio\nCreative · Bridge\nJPEG → OGG">C</td>
+<td class="cell-creative" title="JPEG Image → FLAC Audio\nCreative · Bridge\nJPEG → FLAC">C</td>
+</tr>
+<tr>
+<th class="row-hdr" title="PNG Image">PNG</th>
+<td class="cell-creative cell-tested" title="PNG Image → PDF Document\nCreative · OCR\nPNG → PDF">C</td>
+<td class="cell-creative" title="PNG Image → EPUB Book\nCreative · OCR\nPNG → EPUB">C</td>
+<td class="cell-creative" title="PNG Image → Word Document\nCreative · OCR\nPNG → DOCX">C</td>
+<td class="cell-creative cell-tested" title="PNG Image → Text File\nCreative · OCR\nPNG → TXT">C</td>
+<td class="cell-creative" title="PNG Image → Rich Text Format\nCreative · OCR\nPNG → RTF">C</td>
+<td class="cell-creative" title="PNG Image → HTML Document\nCreative · OCR\nPNG → HTML">C</td>
+<td class="cell-native cell-tested" title="PNG Image → JPEG Image\nNative · Transcode\nPNG → JPG">N</td>
+<td class="cell-native" title="PNG Image → JPEG Image\nNative · Transcode\nPNG → JPEG">N</td>
+<td class="cell-diag">—</td>
+<td class="cell-native" title="PNG Image → WebP Image\nNative · Transcode\nPNG → WEBP">N</td>
+<td class="cell-native" title="PNG Image → HEIC Image\nNative · Transcode\nPNG → HEIC">N</td>
+<td class="cell-native" title="PNG Image → Bitmap Image\nNative · Transcode\nPNG → BMP">N</td>
+<td class="cell-native" title="PNG Image → TIFF Image\nNative · Transcode\nPNG → TIFF">N</td>
+<td class="cell-creative" title="PNG Image → MP4 Video\nCreative · Bridge\nPNG → MP4">C</td>
+<td class="cell-creative" title="PNG Image → AVI Video\nCreative · Bridge\nPNG → AVI">C</td>
+<td class="cell-creative" title="PNG Image → MOV Video\nCreative · Bridge\nPNG → MOV">C</td>
+<td class="cell-creative" title="PNG Image → MKV Video\nCreative · Bridge\nPNG → MKV">C</td>
+<td class="cell-creative" title="PNG Image → WebM Video\nCreative · Bridge\nPNG → WEBM">C</td>
+<td class="cell-creative" title="PNG Image → 3GP Video\nCreative · Bridge\nPNG → 3GP">C</td>
+<td class="cell-creative" title="PNG Image → GIF Animation\nCreative · Bridge\nPNG → GIF">C</td>
+<td class="cell-creative" title="PNG Image → MP3 Audio\nCreative · Bridge\nPNG → MP3">C</td>
+<td class="cell-creative" title="PNG Image → WAV Audio\nCreative · Bridge\nPNG → WAV">C</td>
+<td class="cell-creative" title="PNG Image → M4A Audio\nCreative · Bridge\nPNG → M4A">C</td>
+<td class="cell-creative" title="PNG Image → OGG Audio\nCreative · Bridge\nPNG → OGG">C</td>
+<td class="cell-creative" title="PNG Image → FLAC Audio\nCreative · Bridge\nPNG → FLAC">C</td>
+</tr>
+<tr>
+<th class="row-hdr" title="WebP Image">WEBP</th>
+<td class="cell-creative" title="WebP Image → PDF Document\nCreative · OCR\nWEBP → PDF">C</td>
+<td class="cell-creative" title="WebP Image → EPUB Book\nCreative · OCR\nWEBP → EPUB">C</td>
+<td class="cell-creative" title="WebP Image → Word Document\nCreative · OCR\nWEBP → DOCX">C</td>
+<td class="cell-creative" title="WebP Image → Text File\nCreative · OCR\nWEBP → TXT">C</td>
+<td class="cell-creative" title="WebP Image → Rich Text Format\nCreative · OCR\nWEBP → RTF">C</td>
+<td class="cell-creative" title="WebP Image → HTML Document\nCreative · OCR\nWEBP → HTML">C</td>
+<td class="cell-native" title="WebP Image → JPEG Image\nNative · Transcode\nWEBP → JPG">N</td>
+<td class="cell-native" title="WebP Image → JPEG Image\nNative · Transcode\nWEBP → JPEG">N</td>
+<td class="cell-native" title="WebP Image → PNG Image\nNative · Transcode\nWEBP → PNG">N</td>
+<td class="cell-diag">—</td>
+<td class="cell-native" title="WebP Image → HEIC Image\nNative · Transcode\nWEBP → HEIC">N</td>
+<td class="cell-native" title="WebP Image → Bitmap Image\nNative · Transcode\nWEBP → BMP">N</td>
+<td class="cell-native" title="WebP Image → TIFF Image\nNative · Transcode\nWEBP → TIFF">N</td>
+<td class="cell-creative" title="WebP Image → MP4 Video\nCreative · Bridge\nWEBP → MP4">C</td>
+<td class="cell-creative" title="WebP Image → AVI Video\nCreative · Bridge\nWEBP → AVI">C</td>
+<td class="cell-creative" title="WebP Image → MOV Video\nCreative · Bridge\nWEBP → MOV">C</td>
+<td class="cell-creative" title="WebP Image → MKV Video\nCreative · Bridge\nWEBP → MKV">C</td>
+<td class="cell-creative" title="WebP Image → WebM Video\nCreative · Bridge\nWEBP → WEBM">C</td>
+<td class="cell-creative" title="WebP Image → 3GP Video\nCreative · Bridge\nWEBP → 3GP">C</td>
+<td class="cell-creative" title="WebP Image → GIF Animation\nCreative · Bridge\nWEBP → GIF">C</td>
+<td class="cell-creative" title="WebP Image → MP3 Audio\nCreative · Bridge\nWEBP → MP3">C</td>
+<td class="cell-creative" title="WebP Image → WAV Audio\nCreative · Bridge\nWEBP → WAV">C</td>
+<td class="cell-creative" title="WebP Image → M4A Audio\nCreative · Bridge\nWEBP → M4A">C</td>
+<td class="cell-creative" title="WebP Image → OGG Audio\nCreative · Bridge\nWEBP → OGG">C</td>
+<td class="cell-creative" title="WebP Image → FLAC Audio\nCreative · Bridge\nWEBP → FLAC">C</td>
+</tr>
+<tr>
+<th class="row-hdr" title="HEIC Image">HEIC</th>
+<td class="cell-creative" title="HEIC Image → PDF Document\nCreative · OCR\nHEIC → PDF">C</td>
+<td class="cell-creative" title="HEIC Image → EPUB Book\nCreative · OCR\nHEIC → EPUB">C</td>
+<td class="cell-creative" title="HEIC Image → Word Document\nCreative · OCR\nHEIC → DOCX">C</td>
+<td class="cell-creative" title="HEIC Image → Text File\nCreative · OCR\nHEIC → TXT">C</td>
+<td class="cell-creative" title="HEIC Image → Rich Text Format\nCreative · OCR\nHEIC → RTF">C</td>
+<td class="cell-creative" title="HEIC Image → HTML Document\nCreative · OCR\nHEIC → HTML">C</td>
+<td class="cell-native" title="HEIC Image → JPEG Image\nNative · Transcode\nHEIC → JPG">N</td>
+<td class="cell-native" title="HEIC Image → JPEG Image\nNative · Transcode\nHEIC → JPEG">N</td>
+<td class="cell-native" title="HEIC Image → PNG Image\nNative · Transcode\nHEIC → PNG">N</td>
+<td class="cell-native" title="HEIC Image → WebP Image\nNative · Transcode\nHEIC → WEBP">N</td>
+<td class="cell-diag">—</td>
+<td class="cell-native" title="HEIC Image → Bitmap Image\nNative · Transcode\nHEIC → BMP">N</td>
+<td class="cell-native" title="HEIC Image → TIFF Image\nNative · Transcode\nHEIC → TIFF">N</td>
+<td class="cell-creative" title="HEIC Image → MP4 Video\nCreative · Bridge\nHEIC → MP4">C</td>
+<td class="cell-creative" title="HEIC Image → AVI Video\nCreative · Bridge\nHEIC → AVI">C</td>
+<td class="cell-creative" title="HEIC Image → MOV Video\nCreative · Bridge\nHEIC → MOV">C</td>
+<td class="cell-creative" title="HEIC Image → MKV Video\nCreative · Bridge\nHEIC → MKV">C</td>
+<td class="cell-creative" title="HEIC Image → WebM Video\nCreative · Bridge\nHEIC → WEBM">C</td>
+<td class="cell-creative" title="HEIC Image → 3GP Video\nCreative · Bridge\nHEIC → 3GP">C</td>
+<td class="cell-creative" title="HEIC Image → GIF Animation\nCreative · Bridge\nHEIC → GIF">C</td>
+<td class="cell-creative" title="HEIC Image → MP3 Audio\nCreative · Bridge\nHEIC → MP3">C</td>
+<td class="cell-creative" title="HEIC Image → WAV Audio\nCreative · Bridge\nHEIC → WAV">C</td>
+<td class="cell-creative" title="HEIC Image → M4A Audio\nCreative · Bridge\nHEIC → M4A">C</td>
+<td class="cell-creative" title="HEIC Image → OGG Audio\nCreative · Bridge\nHEIC → OGG">C</td>
+<td class="cell-creative" title="HEIC Image → FLAC Audio\nCreative · Bridge\nHEIC → FLAC">C</td>
+</tr>
+<tr>
+<th class="row-hdr" title="Bitmap Image">BMP</th>
+<td class="cell-creative" title="Bitmap Image → PDF Document\nCreative · OCR\nBMP → PDF">C</td>
+<td class="cell-creative" title="Bitmap Image → EPUB Book\nCreative · OCR\nBMP → EPUB">C</td>
+<td class="cell-creative" title="Bitmap Image → Word Document\nCreative · OCR\nBMP → DOCX">C</td>
+<td class="cell-creative" title="Bitmap Image → Text File\nCreative · OCR\nBMP → TXT">C</td>
+<td class="cell-creative" title="Bitmap Image → Rich Text Format\nCreative · OCR\nBMP → RTF">C</td>
+<td class="cell-creative" title="Bitmap Image → HTML Document\nCreative · OCR\nBMP → HTML">C</td>
+<td class="cell-native" title="Bitmap Image → JPEG Image\nNative · Transcode\nBMP → JPG">N</td>
+<td class="cell-native" title="Bitmap Image → JPEG Image\nNative · Transcode\nBMP → JPEG">N</td>
+<td class="cell-native" title="Bitmap Image → PNG Image\nNative · Transcode\nBMP → PNG">N</td>
+<td class="cell-native" title="Bitmap Image → WebP Image\nNative · Transcode\nBMP → WEBP">N</td>
+<td class="cell-native" title="Bitmap Image → HEIC Image\nNative · Transcode\nBMP → HEIC">N</td>
+<td class="cell-diag">—</td>
+<td class="cell-native" title="Bitmap Image → TIFF Image\nNative · Transcode\nBMP → TIFF">N</td>
+<td class="cell-creative" title="Bitmap Image → MP4 Video\nCreative · Bridge\nBMP → MP4">C</td>
+<td class="cell-creative" title="Bitmap Image → AVI Video\nCreative · Bridge\nBMP → AVI">C</td>
+<td class="cell-creative" title="Bitmap Image → MOV Video\nCreative · Bridge\nBMP → MOV">C</td>
+<td class="cell-creative" title="Bitmap Image → MKV Video\nCreative · Bridge\nBMP → MKV">C</td>
+<td class="cell-creative" title="Bitmap Image → WebM Video\nCreative · Bridge\nBMP → WEBM">C</td>
+<td class="cell-creative" title="Bitmap Image → 3GP Video\nCreative · Bridge\nBMP → 3GP">C</td>
+<td class="cell-creative" title="Bitmap Image → GIF Animation\nCreative · Bridge\nBMP → GIF">C</td>
+<td class="cell-creative" title="Bitmap Image → MP3 Audio\nCreative · Bridge\nBMP → MP3">C</td>
+<td class="cell-creative" title="Bitmap Image → WAV Audio\nCreative · Bridge\nBMP → WAV">C</td>
+<td class="cell-creative" title="Bitmap Image → M4A Audio\nCreative · Bridge\nBMP → M4A">C</td>
+<td class="cell-creative" title="Bitmap Image → OGG Audio\nCreative · Bridge\nBMP → OGG">C</td>
+<td class="cell-creative" title="Bitmap Image → FLAC Audio\nCreative · Bridge\nBMP → FLAC">C</td>
+</tr>
+<tr>
+<th class="row-hdr" title="TIFF Image">TIFF</th>
+<td class="cell-creative" title="TIFF Image → PDF Document\nCreative · OCR\nTIFF → PDF">C</td>
+<td class="cell-creative" title="TIFF Image → EPUB Book\nCreative · OCR\nTIFF → EPUB">C</td>
+<td class="cell-creative" title="TIFF Image → Word Document\nCreative · OCR\nTIFF → DOCX">C</td>
+<td class="cell-creative" title="TIFF Image → Text File\nCreative · OCR\nTIFF → TXT">C</td>
+<td class="cell-creative" title="TIFF Image → Rich Text Format\nCreative · OCR\nTIFF → RTF">C</td>
+<td class="cell-creative" title="TIFF Image → HTML Document\nCreative · OCR\nTIFF → HTML">C</td>
+<td class="cell-native" title="TIFF Image → JPEG Image\nNative · Transcode\nTIFF → JPG">N</td>
+<td class="cell-native" title="TIFF Image → JPEG Image\nNative · Transcode\nTIFF → JPEG">N</td>
+<td class="cell-native" title="TIFF Image → PNG Image\nNative · Transcode\nTIFF → PNG">N</td>
+<td class="cell-native" title="TIFF Image → WebP Image\nNative · Transcode\nTIFF → WEBP">N</td>
+<td class="cell-native" title="TIFF Image → HEIC Image\nNative · Transcode\nTIFF → HEIC">N</td>
+<td class="cell-native" title="TIFF Image → Bitmap Image\nNative · Transcode\nTIFF → BMP">N</td>
+<td class="cell-diag">—</td>
+<td class="cell-creative" title="TIFF Image → MP4 Video\nCreative · Bridge\nTIFF → MP4">C</td>
+<td class="cell-creative" title="TIFF Image → AVI Video\nCreative · Bridge\nTIFF → AVI">C</td>
+<td class="cell-creative" title="TIFF Image → MOV Video\nCreative · Bridge\nTIFF → MOV">C</td>
+<td class="cell-creative" title="TIFF Image → MKV Video\nCreative · Bridge\nTIFF → MKV">C</td>
+<td class="cell-creative" title="TIFF Image → WebM Video\nCreative · Bridge\nTIFF → WEBM">C</td>
+<td class="cell-creative" title="TIFF Image → 3GP Video\nCreative · Bridge\nTIFF → 3GP">C</td>
+<td class="cell-creative" title="TIFF Image → GIF Animation\nCreative · Bridge\nTIFF → GIF">C</td>
+<td class="cell-creative" title="TIFF Image → MP3 Audio\nCreative · Bridge\nTIFF → MP3">C</td>
+<td class="cell-creative" title="TIFF Image → WAV Audio\nCreative · Bridge\nTIFF → WAV">C</td>
+<td class="cell-creative" title="TIFF Image → M4A Audio\nCreative · Bridge\nTIFF → M4A">C</td>
+<td class="cell-creative" title="TIFF Image → OGG Audio\nCreative · Bridge\nTIFF → OGG">C</td>
+<td class="cell-creative" title="TIFF Image → FLAC Audio\nCreative · Bridge\nTIFF → FLAC">C</td>
+</tr>
+<tr>
+<th class="row-hdr" title="MP4 Video">MP4</th>
+<td class="cell-creative cell-tested" title="MP4 Video → PDF Document\nCreative · Frames\nMP4 → PDF">C</td>
+<td class="cell-degraded" title="MP4 Video → EPUB Book\nSimplified · STT/OCR\nMP4 → EPUB">D</td>
+<td class="cell-degraded" title="MP4 Video → Word Document\nSimplified · STT/OCR\nMP4 → DOCX">D</td>
+<td class="cell-degraded cell-tested" title="MP4 Video → Text File\nSimplified · STT/OCR\nMP4 → TXT">D</td>
+<td class="cell-degraded" title="MP4 Video → Rich Text Format\nSimplified · STT/OCR\nMP4 → RTF">D</td>
+<td class="cell-degraded" title="MP4 Video → HTML Document\nSimplified · STT/OCR\nMP4 → HTML">D</td>
+<td class="cell-native cell-tested" title="MP4 Video → JPEG Image\nNative · Bridge\nMP4 → JPG">N</td>
+<td class="cell-native" title="MP4 Video → JPEG Image\nNative · Bridge\nMP4 → JPEG">N</td>
+<td class="cell-native" title="MP4 Video → PNG Image\nNative · Bridge\nMP4 → PNG">N</td>
+<td class="cell-native" title="MP4 Video → WebP Image\nNative · Bridge\nMP4 → WEBP">N</td>
+<td class="cell-native" title="MP4 Video → HEIC Image\nNative · Bridge\nMP4 → HEIC">N</td>
+<td class="cell-native" title="MP4 Video → Bitmap Image\nNative · Bridge\nMP4 → BMP">N</td>
+<td class="cell-native" title="MP4 Video → TIFF Image\nNative · Bridge\nMP4 → TIFF">N</td>
+<td class="cell-diag">—</td>
+<td class="cell-degraded" title="MP4 Video → AVI Video\nSimplified · Transcode\nMP4 → AVI">D</td>
+<td class="cell-native" title="MP4 Video → MOV Video\nNative · Transcode\nMP4 → MOV">N</td>
+<td class="cell-native" title="MP4 Video → MKV Video\nNative · Transcode\nMP4 → MKV">N</td>
+<td class="cell-native" title="MP4 Video → WebM Video\nNative · Transcode\nMP4 → WEBM">N</td>
+<td class="cell-native" title="MP4 Video → 3GP Video\nNative · Transcode\nMP4 → 3GP">N</td>
+<td class="cell-native" title="MP4 Video → GIF Animation\nNative · Transcode\nMP4 → GIF">N</td>
+<td class="cell-native cell-tested" title="MP4 Video → MP3 Audio\nNative · Bridge\nMP4 → MP3">N</td>
+<td class="cell-native cell-tested" title="MP4 Video → WAV Audio\nNative · Bridge\nMP4 → WAV">N</td>
+<td class="cell-native" title="MP4 Video → M4A Audio\nNative · Bridge\nMP4 → M4A">N</td>
+<td class="cell-native" title="MP4 Video → OGG Audio\nNative · Bridge\nMP4 → OGG">N</td>
+<td class="cell-native" title="MP4 Video → FLAC Audio\nNative · Bridge\nMP4 → FLAC">N</td>
+</tr>
+<tr>
+<th class="row-hdr" title="AVI Video">AVI</th>
+<td class="cell-creative" title="AVI Video → PDF Document\nCreative · Frames\nAVI → PDF">C</td>
+<td class="cell-degraded" title="AVI Video → EPUB Book\nSimplified · STT/OCR\nAVI → EPUB">D</td>
+<td class="cell-degraded" title="AVI Video → Word Document\nSimplified · STT/OCR\nAVI → DOCX">D</td>
+<td class="cell-degraded" title="AVI Video → Text File\nSimplified · STT/OCR\nAVI → TXT">D</td>
+<td class="cell-degraded" title="AVI Video → Rich Text Format\nSimplified · STT/OCR\nAVI → RTF">D</td>
+<td class="cell-degraded" title="AVI Video → HTML Document\nSimplified · STT/OCR\nAVI → HTML">D</td>
+<td class="cell-native" title="AVI Video → JPEG Image\nNative · Bridge\nAVI → JPG">N</td>
+<td class="cell-native" title="AVI Video → JPEG Image\nNative · Bridge\nAVI → JPEG">N</td>
+<td class="cell-native" title="AVI Video → PNG Image\nNative · Bridge\nAVI → PNG">N</td>
+<td class="cell-native" title="AVI Video → WebP Image\nNative · Bridge\nAVI → WEBP">N</td>
+<td class="cell-native" title="AVI Video → HEIC Image\nNative · Bridge\nAVI → HEIC">N</td>
+<td class="cell-native" title="AVI Video → Bitmap Image\nNative · Bridge\nAVI → BMP">N</td>
+<td class="cell-native" title="AVI Video → TIFF Image\nNative · Bridge\nAVI → TIFF">N</td>
+<td class="cell-native" title="AVI Video → MP4 Video\nNative · Transcode\nAVI → MP4">N</td>
+<td class="cell-diag">—</td>
+<td class="cell-native" title="AVI Video → MOV Video\nNative · Transcode\nAVI → MOV">N</td>
+<td class="cell-native" title="AVI Video → MKV Video\nNative · Transcode\nAVI → MKV">N</td>
+<td class="cell-native" title="AVI Video → WebM Video\nNative · Transcode\nAVI → WEBM">N</td>
+<td class="cell-native" title="AVI Video → 3GP Video\nNative · Transcode\nAVI → 3GP">N</td>
+<td class="cell-native" title="AVI Video → GIF Animation\nNative · Transcode\nAVI → GIF">N</td>
+<td class="cell-native" title="AVI Video → MP3 Audio\nNative · Bridge\nAVI → MP3">N</td>
+<td class="cell-native" title="AVI Video → WAV Audio\nNative · Bridge\nAVI → WAV">N</td>
+<td class="cell-native" title="AVI Video → M4A Audio\nNative · Bridge\nAVI → M4A">N</td>
+<td class="cell-native" title="AVI Video → OGG Audio\nNative · Bridge\nAVI → OGG">N</td>
+<td class="cell-native" title="AVI Video → FLAC Audio\nNative · Bridge\nAVI → FLAC">N</td>
+</tr>
+<tr>
+<th class="row-hdr" title="MOV Video">MOV</th>
+<td class="cell-creative" title="MOV Video → PDF Document\nCreative · Frames\nMOV → PDF">C</td>
+<td class="cell-degraded" title="MOV Video → EPUB Book\nSimplified · STT/OCR\nMOV → EPUB">D</td>
+<td class="cell-degraded" title="MOV Video → Word Document\nSimplified · STT/OCR\nMOV → DOCX">D</td>
+<td class="cell-degraded" title="MOV Video → Text File\nSimplified · STT/OCR\nMOV → TXT">D</td>
+<td class="cell-degraded" title="MOV Video → Rich Text Format\nSimplified · STT/OCR\nMOV → RTF">D</td>
+<td class="cell-degraded" title="MOV Video → HTML Document\nSimplified · STT/OCR\nMOV → HTML">D</td>
+<td class="cell-native" title="MOV Video → JPEG Image\nNative · Bridge\nMOV → JPG">N</td>
+<td class="cell-native" title="MOV Video → JPEG Image\nNative · Bridge\nMOV → JPEG">N</td>
+<td class="cell-native" title="MOV Video → PNG Image\nNative · Bridge\nMOV → PNG">N</td>
+<td class="cell-native" title="MOV Video → WebP Image\nNative · Bridge\nMOV → WEBP">N</td>
+<td class="cell-native" title="MOV Video → HEIC Image\nNative · Bridge\nMOV → HEIC">N</td>
+<td class="cell-native" title="MOV Video → Bitmap Image\nNative · Bridge\nMOV → BMP">N</td>
+<td class="cell-native" title="MOV Video → TIFF Image\nNative · Bridge\nMOV → TIFF">N</td>
+<td class="cell-native" title="MOV Video → MP4 Video\nNative · Transcode\nMOV → MP4">N</td>
+<td class="cell-degraded" title="MOV Video → AVI Video\nSimplified · Transcode\nMOV → AVI">D</td>
+<td class="cell-diag">—</td>
+<td class="cell-native" title="MOV Video → MKV Video\nNative · Transcode\nMOV → MKV">N</td>
+<td class="cell-native" title="MOV Video → WebM Video\nNative · Transcode\nMOV → WEBM">N</td>
+<td class="cell-native" title="MOV Video → 3GP Video\nNative · Transcode\nMOV → 3GP">N</td>
+<td class="cell-native" title="MOV Video → GIF Animation\nNative · Transcode\nMOV → GIF">N</td>
+<td class="cell-native" title="MOV Video → MP3 Audio\nNative · Bridge\nMOV → MP3">N</td>
+<td class="cell-native" title="MOV Video → WAV Audio\nNative · Bridge\nMOV → WAV">N</td>
+<td class="cell-native" title="MOV Video → M4A Audio\nNative · Bridge\nMOV → M4A">N</td>
+<td class="cell-native" title="MOV Video → OGG Audio\nNative · Bridge\nMOV → OGG">N</td>
+<td class="cell-native" title="MOV Video → FLAC Audio\nNative · Bridge\nMOV → FLAC">N</td>
+</tr>
+<tr>
+<th class="row-hdr" title="MKV Video">MKV</th>
+<td class="cell-creative" title="MKV Video → PDF Document\nCreative · Frames\nMKV → PDF">C</td>
+<td class="cell-degraded" title="MKV Video → EPUB Book\nSimplified · STT/OCR\nMKV → EPUB">D</td>
+<td class="cell-degraded" title="MKV Video → Word Document\nSimplified · STT/OCR\nMKV → DOCX">D</td>
+<td class="cell-degraded" title="MKV Video → Text File\nSimplified · STT/OCR\nMKV → TXT">D</td>
+<td class="cell-degraded" title="MKV Video → Rich Text Format\nSimplified · STT/OCR\nMKV → RTF">D</td>
+<td class="cell-degraded" title="MKV Video → HTML Document\nSimplified · STT/OCR\nMKV → HTML">D</td>
+<td class="cell-native" title="MKV Video → JPEG Image\nNative · Bridge\nMKV → JPG">N</td>
+<td class="cell-native" title="MKV Video → JPEG Image\nNative · Bridge\nMKV → JPEG">N</td>
+<td class="cell-native" title="MKV Video → PNG Image\nNative · Bridge\nMKV → PNG">N</td>
+<td class="cell-native" title="MKV Video → WebP Image\nNative · Bridge\nMKV → WEBP">N</td>
+<td class="cell-native" title="MKV Video → HEIC Image\nNative · Bridge\nMKV → HEIC">N</td>
+<td class="cell-native" title="MKV Video → Bitmap Image\nNative · Bridge\nMKV → BMP">N</td>
+<td class="cell-native" title="MKV Video → TIFF Image\nNative · Bridge\nMKV → TIFF">N</td>
+<td class="cell-native" title="MKV Video → MP4 Video\nNative · Transcode\nMKV → MP4">N</td>
+<td class="cell-degraded" title="MKV Video → AVI Video\nSimplified · Transcode\nMKV → AVI">D</td>
+<td class="cell-native" title="MKV Video → MOV Video\nNative · Transcode\nMKV → MOV">N</td>
+<td class="cell-diag">—</td>
+<td class="cell-native" title="MKV Video → WebM Video\nNative · Transcode\nMKV → WEBM">N</td>
+<td class="cell-native" title="MKV Video → 3GP Video\nNative · Transcode\nMKV → 3GP">N</td>
+<td class="cell-native" title="MKV Video → GIF Animation\nNative · Transcode\nMKV → GIF">N</td>
+<td class="cell-native" title="MKV Video → MP3 Audio\nNative · Bridge\nMKV → MP3">N</td>
+<td class="cell-native" title="MKV Video → WAV Audio\nNative · Bridge\nMKV → WAV">N</td>
+<td class="cell-native" title="MKV Video → M4A Audio\nNative · Bridge\nMKV → M4A">N</td>
+<td class="cell-native" title="MKV Video → OGG Audio\nNative · Bridge\nMKV → OGG">N</td>
+<td class="cell-native" title="MKV Video → FLAC Audio\nNative · Bridge\nMKV → FLAC">N</td>
+</tr>
+<tr>
+<th class="row-hdr" title="WebM Video">WEBM</th>
+<td class="cell-creative" title="WebM Video → PDF Document\nCreative · Frames\nWEBM → PDF">C</td>
+<td class="cell-degraded" title="WebM Video → EPUB Book\nSimplified · STT/OCR\nWEBM → EPUB">D</td>
+<td class="cell-degraded" title="WebM Video → Word Document\nSimplified · STT/OCR\nWEBM → DOCX">D</td>
+<td class="cell-degraded" title="WebM Video → Text File\nSimplified · STT/OCR\nWEBM → TXT">D</td>
+<td class="cell-degraded" title="WebM Video → Rich Text Format\nSimplified · STT/OCR\nWEBM → RTF">D</td>
+<td class="cell-degraded" title="WebM Video → HTML Document\nSimplified · STT/OCR\nWEBM → HTML">D</td>
+<td class="cell-native" title="WebM Video → JPEG Image\nNative · Bridge\nWEBM → JPG">N</td>
+<td class="cell-native" title="WebM Video → JPEG Image\nNative · Bridge\nWEBM → JPEG">N</td>
+<td class="cell-native" title="WebM Video → PNG Image\nNative · Bridge\nWEBM → PNG">N</td>
+<td class="cell-native" title="WebM Video → WebP Image\nNative · Bridge\nWEBM → WEBP">N</td>
+<td class="cell-native" title="WebM Video → HEIC Image\nNative · Bridge\nWEBM → HEIC">N</td>
+<td class="cell-native" title="WebM Video → Bitmap Image\nNative · Bridge\nWEBM → BMP">N</td>
+<td class="cell-native" title="WebM Video → TIFF Image\nNative · Bridge\nWEBM → TIFF">N</td>
+<td class="cell-native" title="WebM Video → MP4 Video\nNative · Transcode\nWEBM → MP4">N</td>
+<td class="cell-degraded" title="WebM Video → AVI Video\nSimplified · Transcode\nWEBM → AVI">D</td>
+<td class="cell-native" title="WebM Video → MOV Video\nNative · Transcode\nWEBM → MOV">N</td>
+<td class="cell-native" title="WebM Video → MKV Video\nNative · Transcode\nWEBM → MKV">N</td>
+<td class="cell-diag">—</td>
+<td class="cell-native" title="WebM Video → 3GP Video\nNative · Transcode\nWEBM → 3GP">N</td>
+<td class="cell-native" title="WebM Video → GIF Animation\nNative · Transcode\nWEBM → GIF">N</td>
+<td class="cell-native" title="WebM Video → MP3 Audio\nNative · Bridge\nWEBM → MP3">N</td>
+<td class="cell-native" title="WebM Video → WAV Audio\nNative · Bridge\nWEBM → WAV">N</td>
+<td class="cell-native" title="WebM Video → M4A Audio\nNative · Bridge\nWEBM → M4A">N</td>
+<td class="cell-native" title="WebM Video → OGG Audio\nNative · Bridge\nWEBM → OGG">N</td>
+<td class="cell-native" title="WebM Video → FLAC Audio\nNative · Bridge\nWEBM → FLAC">N</td>
+</tr>
+<tr>
+<th class="row-hdr" title="3GP Video">3GP</th>
+<td class="cell-creative" title="3GP Video → PDF Document\nCreative · Frames\n3GP → PDF">C</td>
+<td class="cell-degraded" title="3GP Video → EPUB Book\nSimplified · STT/OCR\n3GP → EPUB">D</td>
+<td class="cell-degraded" title="3GP Video → Word Document\nSimplified · STT/OCR\n3GP → DOCX">D</td>
+<td class="cell-degraded" title="3GP Video → Text File\nSimplified · STT/OCR\n3GP → TXT">D</td>
+<td class="cell-degraded" title="3GP Video → Rich Text Format\nSimplified · STT/OCR\n3GP → RTF">D</td>
+<td class="cell-degraded" title="3GP Video → HTML Document\nSimplified · STT/OCR\n3GP → HTML">D</td>
+<td class="cell-native" title="3GP Video → JPEG Image\nNative · Bridge\n3GP → JPG">N</td>
+<td class="cell-native" title="3GP Video → JPEG Image\nNative · Bridge\n3GP → JPEG">N</td>
+<td class="cell-native" title="3GP Video → PNG Image\nNative · Bridge\n3GP → PNG">N</td>
+<td class="cell-native" title="3GP Video → WebP Image\nNative · Bridge\n3GP → WEBP">N</td>
+<td class="cell-native" title="3GP Video → HEIC Image\nNative · Bridge\n3GP → HEIC">N</td>
+<td class="cell-native" title="3GP Video → Bitmap Image\nNative · Bridge\n3GP → BMP">N</td>
+<td class="cell-native" title="3GP Video → TIFF Image\nNative · Bridge\n3GP → TIFF">N</td>
+<td class="cell-native" title="3GP Video → MP4 Video\nNative · Transcode\n3GP → MP4">N</td>
+<td class="cell-degraded" title="3GP Video → AVI Video\nSimplified · Transcode\n3GP → AVI">D</td>
+<td class="cell-native" title="3GP Video → MOV Video\nNative · Transcode\n3GP → MOV">N</td>
+<td class="cell-native" title="3GP Video → MKV Video\nNative · Transcode\n3GP → MKV">N</td>
+<td class="cell-native" title="3GP Video → WebM Video\nNative · Transcode\n3GP → WEBM">N</td>
+<td class="cell-diag">—</td>
+<td class="cell-native" title="3GP Video → GIF Animation\nNative · Transcode\n3GP → GIF">N</td>
+<td class="cell-native" title="3GP Video → MP3 Audio\nNative · Bridge\n3GP → MP3">N</td>
+<td class="cell-native" title="3GP Video → WAV Audio\nNative · Bridge\n3GP → WAV">N</td>
+<td class="cell-native" title="3GP Video → M4A Audio\nNative · Bridge\n3GP → M4A">N</td>
+<td class="cell-native" title="3GP Video → OGG Audio\nNative · Bridge\n3GP → OGG">N</td>
+<td class="cell-native" title="3GP Video → FLAC Audio\nNative · Bridge\n3GP → FLAC">N</td>
+</tr>
+<tr>
+<th class="row-hdr" title="GIF Animation">GIF</th>
+<td class="cell-creative" title="GIF Animation → PDF Document\nCreative · Frames\nGIF → PDF">C</td>
+<td class="cell-degraded" title="GIF Animation → EPUB Book\nSimplified · STT/OCR\nGIF → EPUB">D</td>
+<td class="cell-degraded" title="GIF Animation → Word Document\nSimplified · STT/OCR\nGIF → DOCX">D</td>
+<td class="cell-degraded" title="GIF Animation → Text File\nSimplified · STT/OCR\nGIF → TXT">D</td>
+<td class="cell-degraded" title="GIF Animation → Rich Text Format\nSimplified · STT/OCR\nGIF → RTF">D</td>
+<td class="cell-degraded" title="GIF Animation → HTML Document\nSimplified · STT/OCR\nGIF → HTML">D</td>
+<td class="cell-native" title="GIF Animation → JPEG Image\nNative · Bridge\nGIF → JPG">N</td>
+<td class="cell-native" title="GIF Animation → JPEG Image\nNative · Bridge\nGIF → JPEG">N</td>
+<td class="cell-native" title="GIF Animation → PNG Image\nNative · Bridge\nGIF → PNG">N</td>
+<td class="cell-native" title="GIF Animation → WebP Image\nNative · Bridge\nGIF → WEBP">N</td>
+<td class="cell-native" title="GIF Animation → HEIC Image\nNative · Bridge\nGIF → HEIC">N</td>
+<td class="cell-native" title="GIF Animation → Bitmap Image\nNative · Bridge\nGIF → BMP">N</td>
+<td class="cell-native" title="GIF Animation → TIFF Image\nNative · Bridge\nGIF → TIFF">N</td>
+<td class="cell-native" title="GIF Animation → MP4 Video\nNative · Transcode\nGIF → MP4">N</td>
+<td class="cell-degraded" title="GIF Animation → AVI Video\nSimplified · Transcode\nGIF → AVI">D</td>
+<td class="cell-native" title="GIF Animation → MOV Video\nNative · Transcode\nGIF → MOV">N</td>
+<td class="cell-native" title="GIF Animation → MKV Video\nNative · Transcode\nGIF → MKV">N</td>
+<td class="cell-native" title="GIF Animation → WebM Video\nNative · Transcode\nGIF → WEBM">N</td>
+<td class="cell-native" title="GIF Animation → 3GP Video\nNative · Transcode\nGIF → 3GP">N</td>
+<td class="cell-diag">—</td>
+<td class="cell-native" title="GIF Animation → MP3 Audio\nNative · Bridge\nGIF → MP3">N</td>
+<td class="cell-native" title="GIF Animation → WAV Audio\nNative · Bridge\nGIF → WAV">N</td>
+<td class="cell-native" title="GIF Animation → M4A Audio\nNative · Bridge\nGIF → M4A">N</td>
+<td class="cell-native" title="GIF Animation → OGG Audio\nNative · Bridge\nGIF → OGG">N</td>
+<td class="cell-native" title="GIF Animation → FLAC Audio\nNative · Bridge\nGIF → FLAC">N</td>
+</tr>
+<tr>
+<th class="row-hdr" title="MP3 Audio">MP3</th>
+<td class="cell-creative" title="MP3 Audio → PDF Document\nCreative · STT\nMP3 → PDF">C</td>
+<td class="cell-creative" title="MP3 Audio → EPUB Book\nCreative · STT\nMP3 → EPUB">C</td>
+<td class="cell-creative" title="MP3 Audio → Word Document\nCreative · STT\nMP3 → DOCX">C</td>
+<td class="cell-creative" title="MP3 Audio → Text File\nCreative · STT\nMP3 → TXT">C</td>
+<td class="cell-creative" title="MP3 Audio → Rich Text Format\nCreative · STT\nMP3 → RTF">C</td>
+<td class="cell-creative" title="MP3 Audio → HTML Document\nCreative · STT\nMP3 → HTML">C</td>
+<td class="cell-creative" title="MP3 Audio → JPEG Image\nCreative · Bridge\nMP3 → JPG">C</td>
+<td class="cell-creative" title="MP3 Audio → JPEG Image\nCreative · Bridge\nMP3 → JPEG">C</td>
+<td class="cell-creative" title="MP3 Audio → PNG Image\nCreative · Bridge\nMP3 → PNG">C</td>
+<td class="cell-creative" title="MP3 Audio → WebP Image\nCreative · Bridge\nMP3 → WEBP">C</td>
+<td class="cell-creative" title="MP3 Audio → HEIC Image\nCreative · Bridge\nMP3 → HEIC">C</td>
+<td class="cell-creative" title="MP3 Audio → Bitmap Image\nCreative · Bridge\nMP3 → BMP">C</td>
+<td class="cell-creative" title="MP3 Audio → TIFF Image\nCreative · Bridge\nMP3 → TIFF">C</td>
+<td class="cell-native" title="MP3 Audio → MP4 Video\nNative · Bridge\nMP3 → MP4">N</td>
+<td class="cell-native" title="MP3 Audio → AVI Video\nNative · Bridge\nMP3 → AVI">N</td>
+<td class="cell-native" title="MP3 Audio → MOV Video\nNative · Bridge\nMP3 → MOV">N</td>
+<td class="cell-native" title="MP3 Audio → MKV Video\nNative · Bridge\nMP3 → MKV">N</td>
+<td class="cell-native" title="MP3 Audio → WebM Video\nNative · Bridge\nMP3 → WEBM">N</td>
+<td class="cell-native" title="MP3 Audio → 3GP Video\nNative · Bridge\nMP3 → 3GP">N</td>
+<td class="cell-native" title="MP3 Audio → GIF Animation\nNative · Bridge\nMP3 → GIF">N</td>
+<td class="cell-diag">—</td>
+<td class="cell-native" title="MP3 Audio → WAV Audio\nNative · Transcode\nMP3 → WAV">N</td>
+<td class="cell-native" title="MP3 Audio → M4A Audio\nNative · Transcode\nMP3 → M4A">N</td>
+<td class="cell-native" title="MP3 Audio → OGG Audio\nNative · Transcode\nMP3 → OGG">N</td>
+<td class="cell-native" title="MP3 Audio → FLAC Audio\nNative · Transcode\nMP3 → FLAC">N</td>
+</tr>
+<tr>
+<th class="row-hdr" title="WAV Audio">WAV</th>
+<td class="cell-creative" title="WAV Audio → PDF Document\nCreative · STT\nWAV → PDF">C</td>
+<td class="cell-creative" title="WAV Audio → EPUB Book\nCreative · STT\nWAV → EPUB">C</td>
+<td class="cell-creative" title="WAV Audio → Word Document\nCreative · STT\nWAV → DOCX">C</td>
+<td class="cell-creative" title="WAV Audio → Text File\nCreative · STT\nWAV → TXT">C</td>
+<td class="cell-creative" title="WAV Audio → Rich Text Format\nCreative · STT\nWAV → RTF">C</td>
+<td class="cell-creative" title="WAV Audio → HTML Document\nCreative · STT\nWAV → HTML">C</td>
+<td class="cell-creative" title="WAV Audio → JPEG Image\nCreative · Bridge\nWAV → JPG">C</td>
+<td class="cell-creative" title="WAV Audio → JPEG Image\nCreative · Bridge\nWAV → JPEG">C</td>
+<td class="cell-creative" title="WAV Audio → PNG Image\nCreative · Bridge\nWAV → PNG">C</td>
+<td class="cell-creative" title="WAV Audio → WebP Image\nCreative · Bridge\nWAV → WEBP">C</td>
+<td class="cell-creative" title="WAV Audio → HEIC Image\nCreative · Bridge\nWAV → HEIC">C</td>
+<td class="cell-creative" title="WAV Audio → Bitmap Image\nCreative · Bridge\nWAV → BMP">C</td>
+<td class="cell-creative" title="WAV Audio → TIFF Image\nCreative · Bridge\nWAV → TIFF">C</td>
+<td class="cell-native" title="WAV Audio → MP4 Video\nNative · Bridge\nWAV → MP4">N</td>
+<td class="cell-native" title="WAV Audio → AVI Video\nNative · Bridge\nWAV → AVI">N</td>
+<td class="cell-native" title="WAV Audio → MOV Video\nNative · Bridge\nWAV → MOV">N</td>
+<td class="cell-native" title="WAV Audio → MKV Video\nNative · Bridge\nWAV → MKV">N</td>
+<td class="cell-native" title="WAV Audio → WebM Video\nNative · Bridge\nWAV → WEBM">N</td>
+<td class="cell-native" title="WAV Audio → 3GP Video\nNative · Bridge\nWAV → 3GP">N</td>
+<td class="cell-native" title="WAV Audio → GIF Animation\nNative · Bridge\nWAV → GIF">N</td>
+<td class="cell-native" title="WAV Audio → MP3 Audio\nNative · Transcode\nWAV → MP3">N</td>
+<td class="cell-diag">—</td>
+<td class="cell-native" title="WAV Audio → M4A Audio\nNative · Transcode\nWAV → M4A">N</td>
+<td class="cell-native" title="WAV Audio → OGG Audio\nNative · Transcode\nWAV → OGG">N</td>
+<td class="cell-native" title="WAV Audio → FLAC Audio\nNative · Transcode\nWAV → FLAC">N</td>
+</tr>
+<tr>
+<th class="row-hdr" title="M4A Audio">M4A</th>
+<td class="cell-creative" title="M4A Audio → PDF Document\nCreative · STT\nM4A → PDF">C</td>
+<td class="cell-creative" title="M4A Audio → EPUB Book\nCreative · STT\nM4A → EPUB">C</td>
+<td class="cell-creative" title="M4A Audio → Word Document\nCreative · STT\nM4A → DOCX">C</td>
+<td class="cell-creative" title="M4A Audio → Text File\nCreative · STT\nM4A → TXT">C</td>
+<td class="cell-creative" title="M4A Audio → Rich Text Format\nCreative · STT\nM4A → RTF">C</td>
+<td class="cell-creative" title="M4A Audio → HTML Document\nCreative · STT\nM4A → HTML">C</td>
+<td class="cell-creative" title="M4A Audio → JPEG Image\nCreative · Bridge\nM4A → JPG">C</td>
+<td class="cell-creative" title="M4A Audio → JPEG Image\nCreative · Bridge\nM4A → JPEG">C</td>
+<td class="cell-creative" title="M4A Audio → PNG Image\nCreative · Bridge\nM4A → PNG">C</td>
+<td class="cell-creative" title="M4A Audio → WebP Image\nCreative · Bridge\nM4A → WEBP">C</td>
+<td class="cell-creative" title="M4A Audio → HEIC Image\nCreative · Bridge\nM4A → HEIC">C</td>
+<td class="cell-creative" title="M4A Audio → Bitmap Image\nCreative · Bridge\nM4A → BMP">C</td>
+<td class="cell-creative" title="M4A Audio → TIFF Image\nCreative · Bridge\nM4A → TIFF">C</td>
+<td class="cell-native" title="M4A Audio → MP4 Video\nNative · Bridge\nM4A → MP4">N</td>
+<td class="cell-native" title="M4A Audio → AVI Video\nNative · Bridge\nM4A → AVI">N</td>
+<td class="cell-native" title="M4A Audio → MOV Video\nNative · Bridge\nM4A → MOV">N</td>
+<td class="cell-native" title="M4A Audio → MKV Video\nNative · Bridge\nM4A → MKV">N</td>
+<td class="cell-native" title="M4A Audio → WebM Video\nNative · Bridge\nM4A → WEBM">N</td>
+<td class="cell-native" title="M4A Audio → 3GP Video\nNative · Bridge\nM4A → 3GP">N</td>
+<td class="cell-native" title="M4A Audio → GIF Animation\nNative · Bridge\nM4A → GIF">N</td>
+<td class="cell-native" title="M4A Audio → MP3 Audio\nNative · Transcode\nM4A → MP3">N</td>
+<td class="cell-native" title="M4A Audio → WAV Audio\nNative · Transcode\nM4A → WAV">N</td>
+<td class="cell-diag">—</td>
+<td class="cell-native" title="M4A Audio → OGG Audio\nNative · Transcode\nM4A → OGG">N</td>
+<td class="cell-native" title="M4A Audio → FLAC Audio\nNative · Transcode\nM4A → FLAC">N</td>
+</tr>
+<tr>
+<th class="row-hdr" title="OGG Audio">OGG</th>
+<td class="cell-creative" title="OGG Audio → PDF Document\nCreative · STT\nOGG → PDF">C</td>
+<td class="cell-creative" title="OGG Audio → EPUB Book\nCreative · STT\nOGG → EPUB">C</td>
+<td class="cell-creative" title="OGG Audio → Word Document\nCreative · STT\nOGG → DOCX">C</td>
+<td class="cell-creative" title="OGG Audio → Text File\nCreative · STT\nOGG → TXT">C</td>
+<td class="cell-creative" title="OGG Audio → Rich Text Format\nCreative · STT\nOGG → RTF">C</td>
+<td class="cell-creative" title="OGG Audio → HTML Document\nCreative · STT\nOGG → HTML">C</td>
+<td class="cell-creative" title="OGG Audio → JPEG Image\nCreative · Bridge\nOGG → JPG">C</td>
+<td class="cell-creative" title="OGG Audio → JPEG Image\nCreative · Bridge\nOGG → JPEG">C</td>
+<td class="cell-creative" title="OGG Audio → PNG Image\nCreative · Bridge\nOGG → PNG">C</td>
+<td class="cell-creative" title="OGG Audio → WebP Image\nCreative · Bridge\nOGG → WEBP">C</td>
+<td class="cell-creative" title="OGG Audio → HEIC Image\nCreative · Bridge\nOGG → HEIC">C</td>
+<td class="cell-creative" title="OGG Audio → Bitmap Image\nCreative · Bridge\nOGG → BMP">C</td>
+<td class="cell-creative" title="OGG Audio → TIFF Image\nCreative · Bridge\nOGG → TIFF">C</td>
+<td class="cell-native" title="OGG Audio → MP4 Video\nNative · Bridge\nOGG → MP4">N</td>
+<td class="cell-native" title="OGG Audio → AVI Video\nNative · Bridge\nOGG → AVI">N</td>
+<td class="cell-native" title="OGG Audio → MOV Video\nNative · Bridge\nOGG → MOV">N</td>
+<td class="cell-native" title="OGG Audio → MKV Video\nNative · Bridge\nOGG → MKV">N</td>
+<td class="cell-native" title="OGG Audio → WebM Video\nNative · Bridge\nOGG → WEBM">N</td>
+<td class="cell-native" title="OGG Audio → 3GP Video\nNative · Bridge\nOGG → 3GP">N</td>
+<td class="cell-native" title="OGG Audio → GIF Animation\nNative · Bridge\nOGG → GIF">N</td>
+<td class="cell-native" title="OGG Audio → MP3 Audio\nNative · Transcode\nOGG → MP3">N</td>
+<td class="cell-native" title="OGG Audio → WAV Audio\nNative · Transcode\nOGG → WAV">N</td>
+<td class="cell-native" title="OGG Audio → M4A Audio\nNative · Transcode\nOGG → M4A">N</td>
+<td class="cell-diag">—</td>
+<td class="cell-native" title="OGG Audio → FLAC Audio\nNative · Transcode\nOGG → FLAC">N</td>
+</tr>
+<tr>
+<th class="row-hdr" title="FLAC Audio">FLAC</th>
+<td class="cell-creative" title="FLAC Audio → PDF Document\nCreative · STT\nFLAC → PDF">C</td>
+<td class="cell-creative" title="FLAC Audio → EPUB Book\nCreative · STT\nFLAC → EPUB">C</td>
+<td class="cell-creative" title="FLAC Audio → Word Document\nCreative · STT\nFLAC → DOCX">C</td>
+<td class="cell-creative" title="FLAC Audio → Text File\nCreative · STT\nFLAC → TXT">C</td>
+<td class="cell-creative" title="FLAC Audio → Rich Text Format\nCreative · STT\nFLAC → RTF">C</td>
+<td class="cell-creative" title="FLAC Audio → HTML Document\nCreative · STT\nFLAC → HTML">C</td>
+<td class="cell-creative" title="FLAC Audio → JPEG Image\nCreative · Bridge\nFLAC → JPG">C</td>
+<td class="cell-creative" title="FLAC Audio → JPEG Image\nCreative · Bridge\nFLAC → JPEG">C</td>
+<td class="cell-creative" title="FLAC Audio → PNG Image\nCreative · Bridge\nFLAC → PNG">C</td>
+<td class="cell-creative" title="FLAC Audio → WebP Image\nCreative · Bridge\nFLAC → WEBP">C</td>
+<td class="cell-creative" title="FLAC Audio → HEIC Image\nCreative · Bridge\nFLAC → HEIC">C</td>
+<td class="cell-creative" title="FLAC Audio → Bitmap Image\nCreative · Bridge\nFLAC → BMP">C</td>
+<td class="cell-creative" title="FLAC Audio → TIFF Image\nCreative · Bridge\nFLAC → TIFF">C</td>
+<td class="cell-native" title="FLAC Audio → MP4 Video\nNative · Bridge\nFLAC → MP4">N</td>
+<td class="cell-native" title="FLAC Audio → AVI Video\nNative · Bridge\nFLAC → AVI">N</td>
+<td class="cell-native" title="FLAC Audio → MOV Video\nNative · Bridge\nFLAC → MOV">N</td>
+<td class="cell-native" title="FLAC Audio → MKV Video\nNative · Bridge\nFLAC → MKV">N</td>
+<td class="cell-native" title="FLAC Audio → WebM Video\nNative · Bridge\nFLAC → WEBM">N</td>
+<td class="cell-native" title="FLAC Audio → 3GP Video\nNative · Bridge\nFLAC → 3GP">N</td>
+<td class="cell-native" title="FLAC Audio → GIF Animation\nNative · Bridge\nFLAC → GIF">N</td>
+<td class="cell-native" title="FLAC Audio → MP3 Audio\nNative · Transcode\nFLAC → MP3">N</td>
+<td class="cell-native" title="FLAC Audio → WAV Audio\nNative · Transcode\nFLAC → WAV">N</td>
+<td class="cell-native" title="FLAC Audio → M4A Audio\nNative · Transcode\nFLAC → M4A">N</td>
+<td class="cell-native" title="FLAC Audio → OGG Audio\nNative · Transcode\nFLAC → OGG">N</td>
+<td class="cell-diag">—</td>
+</tr>
+</tbody></table></div>
+<section class="tests">
+  <h2>Automated test coverage</h2>
+  <table class="info">
+    <tr><td>Planner sync (all 600 paths)</td><td><strong>✅</strong> PlannerHandlerSyncTest</td></tr>
+    <tr><td>JVM unit tests</td><td><strong>58</strong></td></tr>
+    <tr><td>Instrumented tests</td><td><strong>~49</strong> (device required)</td></tr>
+    <tr><td>E2E conversion smokes (pairs)</td><td><strong>17</strong> of 600 (ring on grid)</td></tr>
+    <tr><td>CI on PR</td><td>unit-tests + release-16kb</td></tr>
+  </table>
+  <p>Full inventory: <code>Work/skills/unimediaconv/TEST_COVERAGE.md</code></p>
+</section>
+</main>
+<footer><p>Regenerate: <code>.\gradlew :app:testDebugUnitTest --tests ConversionMatrixVisualGeneratorTest</code></p></footer>
+</body></html>

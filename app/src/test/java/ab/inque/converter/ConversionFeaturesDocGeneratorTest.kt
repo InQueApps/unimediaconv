@@ -259,7 +259,7 @@ class ConversionFeaturesDocGeneratorTest {
         sb.appendLine("| `canEncodeHeic` | HEIC image output |")
         sb.appendLine("| `canEncodeOgg` / `canEncodeFlac` | OGG / FLAC audio output |")
         sb.appendLine("| `canTranscribe` | All audio → documents; video → text documents (video → PDF frames still allowed) |")
-        sb.appendLine("| `canOcr` | Direct image → text documents (OCR); image → PDF → doc multi-hop may still appear |")
+        sb.appendLine("| `canOcr` | Direct image → text documents; blocked when false (incl. multi-hop) |")
         return sb.toString().trimEnd()
     }
 

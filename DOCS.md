@@ -19,6 +19,7 @@ Planning, product specs, QA matrices, and the Cursor skill for this app live **o
 | `GAPS.md` | Open gaps (auto-generated) |
 | `CODE_GAPS.md` | Open gaps mapped to Kotlin source files |
 | `GAP_FIX_PLAN.md` | Gap fix + test expansion roadmap |
+| `TEST_COVERAGE.md` | Automated tests + E2E pair map |
 | `PLAN.md` | Implementation roadmap |
 | `TEST_PLAN.md` | Full QA plan |
 | `GEOMETRY_FIX_PLAN.md` | Geometry fix tracking |
@@ -33,9 +34,10 @@ From repo root:
 ```powershell
 .\gradlew :app:testDebugUnitTest --tests ConversionFeaturesDocGeneratorTest
 .\gradlew :app:testDebugUnitTest --tests GapsDocGeneratorTest
+.\gradlew :app:testDebugUnitTest --tests ConversionMatrixVisualGeneratorTest
 ```
 
-Output writes to `Work/skills/unimediaconv/` (override with env `UNIMEDIACONV_SKILLS_DIR`).
+Output: skills → `Work/skills/unimediaconv/` · visual grid → `scripts/conversion_matrix.html`
 
 ## Run all tests
 
