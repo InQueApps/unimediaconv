@@ -36,6 +36,7 @@ import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.android.billingclient.api.BillingClient
 import com.android.billingclient.api.BillingClientStateListener
+import com.android.billingclient.api.PendingPurchasesParams
 import com.android.billingclient.api.BillingResult
 import com.android.billingclient.api.Purchase
 import com.android.billingclient.api.PurchasesUpdatedListener
@@ -180,7 +181,11 @@ class MainActivity : AppCompatActivity() {
             }
 
             binding.conversionCard.visibility = View.VISIBLE
-            populateToFormats(firstFormat)
+            if (items.size > 1) {
+                populateToFormatsForSelection(items)
+            } else {
+                populateToFormats(firstFormat)
+            }
             updateVideoConversionToolsVisibility()
             scrollToView(binding.convertToCard)
         } else {
@@ -266,12 +271,14 @@ class MainActivity : AppCompatActivity() {
     /** True when the selected (audio) files are being transcribed to a document. */
     private fun requiresMicPermission(files: List<SelectedFileItem>, targetFormat: FileFormat): Boolean {
         if (files.isEmpty()) return false
-        val sourceFormat = resolveSourceFormat(files.first()) ?: return false
         if (targetFormat.category != FormatCategory.DOCUMENT) return false
-        return when (sourceFormat.category) {
-            FormatCategory.AUDIO -> true
-            FormatCategory.VIDEO -> targetFormat != FileFormat.PDF
-            else -> false
+        return files.any { item ->
+            val sourceFormat = resolveSourceFormat(item) ?: return@any false
+            when (sourceFormat.category) {
+                FormatCategory.AUDIO -> true
+                FormatCategory.VIDEO -> sourceFormat != FileFormat.GIF && targetFormat != FileFormat.PDF
+                else -> false
+            }
         }
     }
 
@@ -329,7 +336,10 @@ class MainActivity : AppCompatActivity() {
 
         val billingClient = BillingClient.newBuilder(this)
             .setListener(PurchasesUpdatedListener { _, _ -> /* restore-only: handled via queryPurchasesAsync */ })
-            .enablePendingPurchases()
+            .enablePendingPurchases(
+                PendingPurchasesParams.newBuilder().enableOneTimeProducts().build()
+            )
+            .enableAutoServiceReconnection()
             .build()
         billingClient.startConnection(object : BillingClientStateListener {
             override fun onBillingSetupFinished(billingResult: BillingResult) {
@@ -1616,12 +1626,28 @@ class MainActivity : AppCompatActivity() {
             contentResolver.openInputStream(uri)?.use { inputStream ->
                 android.graphics.BitmapFactory.decodeStream(inputStream, null, options)
             }
+            var rawW = options.outWidth
+            var rawH = options.outHeight
+            if (rawW <= 0 || rawH <= 0) {
+                val tempTiff = File(cacheDir, "bounds_tiff_${System.nanoTime()}.tiff")
+                try {
+                    contentResolver.openInputStream(uri)?.use { input ->
+                        FileOutputStream(tempTiff).use { out -> input.copyTo(out) }
+                    }
+                    ImageExportUtil.readTiffBounds(tempTiff)?.let { (tw, th) ->
+                        rawW = tw
+                        rawH = th
+                    }
+                } finally {
+                    if (tempTiff.exists()) tempTiff.delete()
+                }
+            }
             val orientation = contentResolver.openInputStream(uri)?.use { inputStream ->
                 BitmapGeometryUtil.readExifOrientation(inputStream)
             } ?: ExifInterface.ORIENTATION_NORMAL
             val (displayW, displayH) = BitmapGeometryUtil.displayDimensions(
-                options.outWidth,
-                options.outHeight,
+                rawW,
+                rawH,
                 orientation
             )
             originalImageWidth = displayW
@@ -1634,7 +1660,40 @@ class MainActivity : AppCompatActivity() {
             originalImageHeight = 0
         }
     }
-    
+
+    private fun populateToFormatsForSelection(items: List<SelectedFileItem>) {
+        val firstFormat = resolveSourceFormat(items.first()) ?: return
+        currentSourceFormat = firstFormat
+        val distinctFormats = items.mapNotNull { resolveSourceFormat(it) }.distinct()
+        if (distinctFormats.size <= 1) {
+            populateToFormats(firstFormat)
+            return
+        }
+        val supportedBySource = distinctFormats.associateWith { fmt ->
+            FileFormat.getSupportedConversions(fmt, this).toSet()
+        }
+        val intersectedFormats = FileFormat.entries.filter { target ->
+            distinctFormats.all { fmt ->
+                fmt == target || target in (supportedBySource[fmt] ?: emptySet())
+            }
+        }
+        val compatibleFormats = if (intersectedFormats.isNotEmpty()) {
+            intersectedFormats
+        } else {
+            FileFormat.getSupportedConversions(firstFormat, this)
+        }
+        val compatibleFormatNames = compatibleFormats.map { it.displayName }
+
+        toFormatAdapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, compatibleFormatNames)
+        binding.toFormatSpinner.setAdapter(toFormatAdapter)
+        binding.toFormatSpinner.setText("", false)
+        binding.convertButton.isEnabled = false
+        binding.convertButton.alpha = 0.5f
+        binding.livePreviewSwitch.isEnabled = false
+        setLivePreviewChecked(false)
+        updateTtsSettingsVisibility(firstFormat, null)
+    }
+
     private fun populateToFormats(sourceFormat: FileFormat) {
         currentSourceFormat = sourceFormat
         val compatibleFormats = FileFormat.getSupportedConversions(sourceFormat, this)

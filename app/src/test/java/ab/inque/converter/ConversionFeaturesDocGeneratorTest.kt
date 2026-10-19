@@ -116,7 +116,7 @@ class ConversionFeaturesDocGeneratorTest {
         sb.appendLine()
         sb.appendLine("| Metric | Value |")
         sb.appendLine("|--------|-------|")
-        sb.appendLine("| Formats | 26 |")
+        sb.appendLine("| Formats | ${FileFormat.entries.size} (${FileFormat.entries.size} formats · $total directed pairs) |")
         sb.appendLine("| **Pairs in UI** (max device) | **$total** |")
         sb.appendLine("| ✅ Native fidelity | $native |")
         sb.appendLine("| ⚠️ Simplified fidelity | $degraded |")

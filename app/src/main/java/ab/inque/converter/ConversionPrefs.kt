@@ -92,4 +92,20 @@ object ConversionPrefs {
             .putString(KEY_TTS_VOICE_NAME, voiceName?.takeIf { it.isNotBlank() })
             .commit()
     }
+
+    private const val KEY_SPEECH_LOCALE_TAG = "speech_locale_tag"
+
+    /** BCP-47 language tag (e.g. "en-US") for speech recognition and synthesis; null = system default. */
+    fun getSpeechLocaleTag(context: Context): String? =
+        prefs(context).getString(KEY_SPEECH_LOCALE_TAG, null)?.takeIf { it.isNotBlank() }
+
+    fun setSpeechLocaleTag(context: Context, localeTag: String?) {
+        prefs(context).edit()
+            .putString(KEY_SPEECH_LOCALE_TAG, localeTag?.takeIf { it.isNotBlank() })
+            .commit()
+    }
+
+    fun getSttTtsLocale(context: Context): String? = getSpeechLocaleTag(context)
+
+    fun setSttTtsLocale(context: Context, languageTag: String?) = setSpeechLocaleTag(context, languageTag)
 }

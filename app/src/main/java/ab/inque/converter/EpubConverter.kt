@@ -658,19 +658,5 @@ class EpubConverter {
         }
     }
     
-    private fun escapeRtfText(text: String): String {
-        val sb = StringBuilder()
-        for (c in text) {
-            when (c) {
-                '\\' -> sb.append("\\\\")
-                '{' -> sb.append("\\{")
-                '}' -> sb.append("\\}")
-                '\n' -> sb.append("\\par ")
-                '\r' -> {} // skip
-                in '\u0000'..'\u007f' -> sb.append(c) // ASCII
-                else -> sb.append("\\u").append(c.code).append("?")
-            }
-        }
-        return sb.toString()
-    }
+    private fun escapeRtfText(text: String): String = RtfUtil.escapeRtfText(text)
 } 

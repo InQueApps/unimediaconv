@@ -10,6 +10,7 @@ import com.android.billingclient.api.BillingClient
 import com.android.billingclient.api.BillingClientStateListener
 import com.android.billingclient.api.BillingFlowParams
 import com.android.billingclient.api.BillingResult
+import com.android.billingclient.api.PendingPurchasesParams
 import com.android.billingclient.api.ProductDetails
 import com.android.billingclient.api.Purchase
 import com.android.billingclient.api.PurchasesUpdatedListener
@@ -71,7 +72,10 @@ class PurchaseActivity : AppCompatActivity() {
         if (!::billingClient.isInitialized) {
             billingClient = BillingClient.newBuilder(this)
                 .setListener(purchasesUpdatedListener)
-                .enablePendingPurchases()
+                .enablePendingPurchases(
+                    PendingPurchasesParams.newBuilder().enableOneTimeProducts().build()
+                )
+                .enableAutoServiceReconnection()
                 .build()
         }
 
@@ -109,7 +113,7 @@ class PurchaseActivity : AppCompatActivity() {
                 val details = inappProducts.first()
                 premiumProductDetails = details
                 premiumProductType = BillingClient.ProductType.INAPP
-                premiumOfferToken = null
+                premiumOfferToken = offerTokenFor(details, BillingClient.ProductType.INAPP)
                 updateStatus("Product loaded: $PREMIUM_PRODUCT_ID (one-time)")
                 return@queryProductDetailsForType
             }
@@ -119,9 +123,7 @@ class PurchaseActivity : AppCompatActivity() {
                 Log.d(TAG, "query SUBS response=${subsResult.responseCode} count=${subsProducts.size}")
                 if (subsResult.responseCode == BillingClient.BillingResponseCode.OK && subsProducts.isNotEmpty()) {
                     val details = subsProducts.first()
-                    val offerToken = details.subscriptionOfferDetails
-                        ?.firstOrNull()
-                        ?.offerToken
+                    val offerToken = offerTokenFor(details, BillingClient.ProductType.SUBS)
 
                     premiumProductDetails = details
                     premiumProductType = BillingClient.ProductType.SUBS
@@ -162,7 +164,17 @@ class PurchaseActivity : AppCompatActivity() {
             .setProductList(listOf(product))
             .build()
 
-        billingClient.queryProductDetailsAsync(params, onResult)
+        billingClient.queryProductDetailsAsync(params) { billingResult, queryResult ->
+            onResult(billingResult, queryResult.productDetailsList)
+        }
+    }
+
+    private fun offerTokenFor(details: ProductDetails, productType: String): String? {
+        return if (productType == BillingClient.ProductType.SUBS) {
+            details.subscriptionOfferDetails?.firstOrNull()?.offerToken
+        } else {
+            details.oneTimePurchaseOfferDetailsList?.firstOrNull()?.offerToken
+        }
     }
 
     private fun launchPremiumPurchaseFlow() {
@@ -181,19 +193,17 @@ class PurchaseActivity : AppCompatActivity() {
             return
         }
 
-        val productDetailsBuilder = BillingFlowParams.ProductDetailsParams.newBuilder()
-            .setProductDetails(details)
-
-        if (premiumProductType == BillingClient.ProductType.SUBS) {
-            val token = premiumOfferToken
-            if (token.isNullOrBlank()) {
-                showToast(getString(R.string.error_purchase_no_offer))
-                return
-            }
-            productDetailsBuilder.setOfferToken(token)
+        val token = premiumOfferToken
+        if (token.isNullOrBlank()) {
+            showToast(getString(R.string.error_purchase_no_offer))
+            updateStatus("Product has no purchasable offer.")
+            return
         }
 
-        val productDetailsParams = productDetailsBuilder.build()
+        val productDetailsParams = BillingFlowParams.ProductDetailsParams.newBuilder()
+            .setProductDetails(details)
+            .setOfferToken(token)
+            .build()
 
         val billingFlowParams = BillingFlowParams.newBuilder()
             .setProductDetailsParamsList(listOf(productDetailsParams))

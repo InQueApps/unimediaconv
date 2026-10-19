@@ -16,6 +16,8 @@ object OcrHelper {
 
     fun recognizeTextFromFile(imageFile: File): String {
         val bitmap = BitmapFactory.decodeFile(imageFile.absolutePath)
+            ?: ab.inque.converter.ImageExportUtil.readTiff(imageFile)
+            ?: ab.inque.converter.ImageExportUtil.readBmp(imageFile)
             ?: throw java.io.IOException("Could not decode image for OCR")
         return try {
             recognizeTextFromBitmap(bitmap)

@@ -18,26 +18,81 @@ class ConversionMatrixVisualGeneratorTest {
     NONE("-", "cell-none", "Not offered")
   }
 
-  /** Pairs covered by instrumented E2E smokes (subset). */
-  private val e2eTestedPairs = setOf(
-    FileFormat.TXT to FileFormat.PDF,
-    FileFormat.HTML to FileFormat.PDF,
-    FileFormat.HTML to FileFormat.RTF,
-    FileFormat.PNG to FileFormat.PDF,
-    FileFormat.TXT to FileFormat.DOCX,
-    FileFormat.RTF to FileFormat.PDF,
-    FileFormat.MP4 to FileFormat.MP3,
-    FileFormat.MP4 to FileFormat.JPG,
-    FileFormat.PNG to FileFormat.JPG,
-    FileFormat.MP4 to FileFormat.WAV,
-    FileFormat.TXT to FileFormat.HTML,
-    FileFormat.HTML to FileFormat.TXT,
-    FileFormat.HTML to FileFormat.DOCX,
-    FileFormat.TXT to FileFormat.MP3,
-    FileFormat.PNG to FileFormat.TXT,
-    FileFormat.MP4 to FileFormat.PDF,
-    FileFormat.MP4 to FileFormat.TXT
-  )
+  /** Pairs covered by automated E2E / JVM conversion quality suites. */
+  private val e2eTestedPairs: Set<Pair<FileFormat, FileFormat>> = buildSet {
+    // Original instrumented smoke pairs
+    add(FileFormat.TXT to FileFormat.PDF)
+    add(FileFormat.HTML to FileFormat.PDF)
+    add(FileFormat.HTML to FileFormat.RTF)
+    add(FileFormat.PNG to FileFormat.PDF)
+    add(FileFormat.TXT to FileFormat.DOCX)
+    add(FileFormat.RTF to FileFormat.PDF)
+    add(FileFormat.MP4 to FileFormat.MP3)
+    add(FileFormat.MP4 to FileFormat.JPG)
+    add(FileFormat.PNG to FileFormat.JPG)
+    add(FileFormat.MP4 to FileFormat.WAV)
+    add(FileFormat.TXT to FileFormat.HTML)
+    add(FileFormat.HTML to FileFormat.TXT)
+    add(FileFormat.HTML to FileFormat.DOCX)
+    add(FileFormat.TXT to FileFormat.MP3)
+    add(FileFormat.PNG to FileFormat.TXT)
+    add(FileFormat.MP4 to FileFormat.PDF)
+    add(FileFormat.MP4 to FileFormat.TXT)
+
+    // All 30 directed Document <-> Document pairs (DocumentConversionQualityTest)
+    val docFormats = listOf(
+      FileFormat.PDF,
+      FileFormat.DOCX,
+      FileFormat.EPUB,
+      FileFormat.TXT,
+      FileFormat.RTF,
+      FileFormat.HTML
+    )
+    for (from in docFormats) {
+      for (to in docFormats) {
+        if (from != to) add(from to to)
+      }
+    }
+
+    // ConversionQualityVerificationTest: Image <-> Image & TIFF as source
+    add(FileFormat.PNG to FileFormat.BMP)
+    add(FileFormat.BMP to FileFormat.PNG)
+    add(FileFormat.PNG to FileFormat.TIFF)
+    add(FileFormat.TIFF to FileFormat.PNG)
+    add(FileFormat.PNG to FileFormat.WEBP)
+    add(FileFormat.WEBP to FileFormat.PNG)
+    add(FileFormat.PNG to FileFormat.JPG)
+    add(FileFormat.TIFF to FileFormat.JPG)
+    add(FileFormat.TIFF to FileFormat.PDF)
+
+    // ConversionQualityVerificationTest: PDF -> Images
+    add(FileFormat.PDF to FileFormat.PNG)
+    add(FileFormat.PDF to FileFormat.JPG)
+    add(FileFormat.PDF to FileFormat.WEBP)
+    add(FileFormat.PDF to FileFormat.BMP)
+    add(FileFormat.PDF to FileFormat.TIFF)
+    add(FileFormat.PDF to FileFormat.HEIC)
+
+    // ConversionQualityVerificationTest: GIF & Slideshow video
+    add(FileFormat.PNG to FileFormat.GIF)
+    add(FileFormat.GIF to FileFormat.MP4)
+    add(FileFormat.GIF to FileFormat.PNG)
+    add(FileFormat.PNG to FileFormat.MP4)
+    add(FileFormat.PNG to FileFormat.WEBM)
+    add(FileFormat.PNG to FileFormat.MKV)
+    add(FileFormat.PNG to FileFormat.AVI)
+
+    // ConversionQualityVerificationTest: Audio <-> Audio, Audio -> Video, silent GIF -> Audio
+    for (audio in listOf(FileFormat.MP3, FileFormat.M4A, FileFormat.OGG, FileFormat.FLAC)) {
+      add(FileFormat.WAV to audio)
+      add(audio to FileFormat.WAV)
+    }
+    for (video in listOf(FileFormat.GIF, FileFormat.MP4, FileFormat.WEBM, FileFormat.MKV, FileFormat.AVI)) {
+      add(FileFormat.WAV to video)
+    }
+    add(FileFormat.GIF to FileFormat.WAV)
+    add(FileFormat.GIF to FileFormat.MP3)
+  }
 
   @Test
   fun generateVisualMatrixHtml() {
@@ -54,7 +109,7 @@ class ConversionMatrixVisualGeneratorTest {
     sb.appendLine("</style></head><body>")
     sb.appendLine("<header>")
     sb.appendLine("<h1>AnyConvert conversion matrix</h1>")
-    sb.appendLine("<p class=\"sub\">26 formats · <strong>600</strong> directed pairs (max device, API 33+ STT) · generated from <code>ConversionPlanner</code></p>")
+    sb.appendLine("<p class=\"sub\">${FileFormat.entries.size} formats · <strong>600</strong> directed pairs (max device, API 33+ STT) · generated from <code>ConversionPlanner</code></p>")
     sb.appendLine(legendHtml())
     sb.appendLine(categoryHeatmapHtml(caps))
     sb.appendLine("</header>")
@@ -153,8 +208,8 @@ class ConversionMatrixVisualGeneratorTest {
   }
 
   private fun testCoverageSection(): String {
-    val jvm = 58
-    val device = 49
+    val jvm = 86
+    val device = 55
     val e2e = e2eTestedPairs.size
     return """
       <section class="tests">
