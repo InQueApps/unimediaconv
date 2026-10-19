@@ -208,62 +208,64 @@ class PdfConverter {
         val imageResources = mutableListOf<PdfImageResource>()
 
         try {
-            PdfReader(FileInputStream(pdfFile)).use { reader ->
-                PdfDocument(reader).use { pdfDocument ->
-                    for (pageIndex in 1..pdfDocument.numberOfPages) {
-                        val page = pdfDocument.getPage(pageIndex)
-                        val pageSize = page.pageSize
+            FileInputStream(pdfFile).use { fis ->
+                PdfReader(fis).use { reader ->
+                    PdfDocument(reader).use { pdfDocument ->
+                        for (pageIndex in 1..pdfDocument.numberOfPages) {
+                            val page = pdfDocument.getPage(pageIndex)
+                            val pageSize = page.pageSize
 
-                        val listener = PdfPageContentListener(pageSize.width, pageSize.height)
-                        PdfCanvasProcessor(listener).processPageContent(page)
+                            val listener = PdfPageContentListener(pageSize.width, pageSize.height)
+                            PdfCanvasProcessor(listener).processPageContent(page)
 
-                        val linkedChunks = applyLinkTargets(page, pdfDocument, listener.textChunks)
+                            val linkedChunks = applyLinkTargets(page, pdfDocument, listener.textChunks)
 
-                        val textElements = linkedChunks.map { chunk ->
-                            PdfTextElement(
-                                text = chunk.text,
-                                fontSize = chunk.fontSize,
-                                fontName = chunk.fontName,
-                                isBold = chunk.isBold,
-                                isItalic = chunk.isItalic,
-                                yPosition = chunk.y,
-                                xPosition = chunk.x,
-                                width = chunk.width,
-                                alignment = "left"
+                            val textElements = linkedChunks.map { chunk ->
+                                PdfTextElement(
+                                    text = chunk.text,
+                                    fontSize = chunk.fontSize,
+                                    fontName = chunk.fontName,
+                                    isBold = chunk.isBold,
+                                    isItalic = chunk.isItalic,
+                                    yPosition = chunk.y,
+                                    xPosition = chunk.x,
+                                    width = chunk.width,
+                                    alignment = "left"
+                                )
+                            }
+
+                            val lines = buildLines(linkedChunks)
+                            val paragraphs = buildParagraphs(lines, pageSize.width)
+                            val headings = buildHeadingsFromParagraphs(paragraphs)
+
+                            val images = listener.images.mapIndexed { index, image ->
+                                val id = "img-${pageIndex}-${index + 1}"
+                                val extension = image.extension.ifBlank { "png" }
+                                val fileName = "$id.$extension"
+                                val imagePath = "images/$fileName"
+                                val pdfImage = PdfImage(
+                                    id = id,
+                                    fileName = imagePath,
+                                    altText = "Image from page $pageIndex",
+                                    pageNumber = pageIndex,
+                                    yPosition = image.yPosition,
+                                    width = image.width,
+                                    height = image.height
+                                )
+                                imageResources.add(PdfImageResource(pdfImage, image.bytes, extension))
+                                pdfImage
+                            }
+
+                            pages.add(
+                                PdfPage(
+                                    pageNumber = pageIndex,
+                                    textElements = textElements,
+                                    paragraphs = paragraphs,
+                                    headings = headings,
+                                    images = images
+                                )
                             )
                         }
-
-                        val lines = buildLines(linkedChunks)
-                        val paragraphs = buildParagraphs(lines, pageSize.width)
-                        val headings = buildHeadingsFromParagraphs(paragraphs)
-
-                        val images = listener.images.mapIndexed { index, image ->
-                            val id = "img-${pageIndex}-${index + 1}"
-                            val extension = image.extension.ifBlank { "png" }
-                            val fileName = "$id.$extension"
-                            val imagePath = "images/$fileName"
-                            val pdfImage = PdfImage(
-                                id = id,
-                                fileName = imagePath,
-                                altText = "Image from page $pageIndex",
-                                pageNumber = pageIndex,
-                                yPosition = image.yPosition,
-                                width = image.width,
-                                height = image.height
-                            )
-                            imageResources.add(PdfImageResource(pdfImage, image.bytes, extension))
-                            pdfImage
-                        }
-
-                        pages.add(
-                            PdfPage(
-                                pageNumber = pageIndex,
-                                textElements = textElements,
-                                paragraphs = paragraphs,
-                                headings = headings,
-                                images = images
-                            )
-                        )
                     }
                 }
             }
@@ -1463,13 +1465,17 @@ class PdfConverter {
         }
     }
 
-    /** Renders each PDF page to an image (JPG or PNG) and returns a zip containing all images. */
+    /** Renders each PDF page to an image (JPG, PNG, WEBP, HEIC, BMP, or TIFF) and returns a zip containing all images. */
     fun convertPdfToImages(pdfFile: File, context: Context, targetFormat: FileFormat, progressCallback: (Float) -> Unit = { _ -> }): File {
         progressCallback(0.1f)
         val zipFile = File(context.cacheDir, "${pdfFile.nameWithoutExtension}_pages.zip")
         val ext = when (targetFormat) {
             FileFormat.JPG, FileFormat.JPEG -> "jpg"
             FileFormat.PNG -> "png"
+            FileFormat.WEBP -> "webp"
+            FileFormat.HEIC -> "heic"
+            FileFormat.BMP -> "bmp"
+            FileFormat.TIFF -> "tiff"
             else -> "png"
         }
         ParcelFileDescriptor.open(pdfFile, ParcelFileDescriptor.MODE_READ_ONLY).use { pfd ->
@@ -1486,10 +1492,25 @@ class PdfConverter {
                             page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
                             val entry = ZipEntry("page_${i + 1}.$ext")
                             zipOut.putNextEntry(entry)
-                            if (ext == "jpg") {
-                                bitmap.compress(Bitmap.CompressFormat.JPEG, 90, zipOut)
-                            } else {
-                                bitmap.compress(Bitmap.CompressFormat.PNG, 100, zipOut)
+                            when (targetFormat) {
+                                FileFormat.JPG, FileFormat.JPEG ->
+                                    bitmap.compress(Bitmap.CompressFormat.JPEG, 90, zipOut)
+                                FileFormat.PNG ->
+                                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, zipOut)
+                                FileFormat.WEBP ->
+                                    bitmap.compress(Bitmap.CompressFormat.WEBP, 90, zipOut)
+                                FileFormat.HEIC -> {
+                                    if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.P) {
+                                        throw UnsupportedOperationException("HEIC output requires Android 9 (API 28) or later")
+                                    }
+                                    ImageExportUtil.writeHeicToStream(bitmap, zipOut, context.cacheDir, 85)
+                                }
+                                FileFormat.BMP ->
+                                    ImageExportUtil.writeBmp(bitmap, zipOut)
+                                FileFormat.TIFF ->
+                                    ImageExportUtil.writeTiff(bitmap, zipOut)
+                                else ->
+                                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, zipOut)
                             }
                             zipOut.closeEntry()
                             bitmap.recycle()
@@ -1701,19 +1722,5 @@ class PdfConverter {
         return builder.toString().trim()
     }
 
-    private fun escapeRtfText(text: String): String {
-        val sb = StringBuilder()
-        for (c in text) {
-            when (c) {
-                '\\' -> sb.append("\\\\")
-                '{' -> sb.append("\\{")
-                '}' -> sb.append("\\}")
-                '\n' -> sb.append("\\par ")
-                '\r' -> {} // skip
-                in '\u0000'..'\u007f' -> sb.append(c) // ASCII
-                else -> sb.append("\\u").append(c.code).append("?")
-            }
-        }
-        return sb.toString()
-    }
+    private fun escapeRtfText(text: String): String = RtfUtil.escapeRtfText(text)
 } 

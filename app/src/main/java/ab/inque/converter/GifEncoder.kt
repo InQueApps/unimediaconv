@@ -1,6 +1,7 @@
 package ab.inque.converter
 
 import android.graphics.Bitmap
+import android.graphics.Color
 import java.io.ByteArrayOutputStream
 import java.io.OutputStream
 
@@ -27,7 +28,7 @@ class GifEncoder(private val out: OutputStream) {
     fun addFrame(bitmap: Bitmap, delayMs: Int) {
         val pixels = IntArray(width * height)
         val scaled = if (bitmap.width != width || bitmap.height != height) {
-            Bitmap.createScaledBitmap(bitmap, width, height, true)
+            BitmapGeometryUtil.fitBitmapOnCanvas(bitmap, width, height, Color.WHITE)
         } else bitmap
         scaled.getPixels(pixels, 0, width, 0, 0, width, height)
         if (scaled !== bitmap) scaled.recycle()

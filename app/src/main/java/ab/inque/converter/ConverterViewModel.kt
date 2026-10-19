@@ -129,6 +129,18 @@ class ConverterViewModel : ViewModel() {
         }
     }
 
+    /** Show the "converted file" result screen (e.g. after Save page as PDF). No conversion cost. */
+    fun setConvertedFileResult(file: File) {
+        _state.value = _state.value.copy(
+            isConverting = false,
+            progress = 1f,
+            convertedFile = file,
+            convertedFiles = null,
+            success = true,
+            error = null
+        )
+    }
+
     fun setTargetFormat(targetFormat: FileFormat) {
         _state.value = _state.value.copy(targetFormat = targetFormat)
     }

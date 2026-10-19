@@ -1,5 +1,9 @@
 package ab.inque.converter
 
+import ab.inque.converter.pipeline.ConversionPlanner
+import ab.inque.converter.pipeline.FormatCapabilities
+import android.content.Context
+
 enum class FileFormat(
     val displayName: String,
     val extension: String,
@@ -12,6 +16,7 @@ enum class FileFormat(
     DOCX("Word Document", "docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", FormatCategory.DOCUMENT),
     TXT("Text File", "txt", "text/plain", FormatCategory.DOCUMENT),
     RTF("Rich Text Format", "rtf", "application/rtf", FormatCategory.DOCUMENT),
+    HTML("HTML Document", "html", "text/html", FormatCategory.DOCUMENT),
     
     // Image Formats
     JPG("JPEG Image", "jpg", "image/jpeg", FormatCategory.IMAGE),
@@ -34,46 +39,42 @@ enum class FileFormat(
     // Audio Formats
     MP3("MP3 Audio", "mp3", "audio/mpeg", FormatCategory.AUDIO),
     WAV("WAV Audio", "wav", "audio/wav", FormatCategory.AUDIO),
-    M4A("M4A Audio", "m4a", "audio/mp4", FormatCategory.AUDIO);
+    M4A("M4A Audio", "m4a", "audio/mp4", FormatCategory.AUDIO),
+    OGG("OGG Audio", "ogg", "audio/ogg", FormatCategory.AUDIO),
+    FLAC("FLAC Audio", "flac", "audio/flac", FormatCategory.AUDIO);
 
     companion object {
         fun fromExtension(extension: String): FileFormat? {
             val ext = extension.lowercase()
-            if (ext == "heif") return HEIC // iPhone sometimes uses .heif
-            return values().find { it.extension.equals(extension, ignoreCase = true) }
+            if (ext == "heif") return HEIC
+            if (ext == "htm") return HTML
+            if (ext == "tif") return TIFF
+            if (ext == "m4v") return MP4
+            if (ext == "aac") return M4A
+            return entries.find { it.extension.equals(extension, ignoreCase = true) }
         }
         
         fun fromMimeType(mimeType: String): FileFormat? {
-            return values().find { it.mimeType.equals(mimeType, ignoreCase = true) }
+            return entries.find { it.mimeType.equals(mimeType, ignoreCase = true) }
         }
         
         fun getFormatsByCategory(category: FormatCategory): List<FileFormat> {
-            return values().filter { it.category == category }
+            return entries.filter { it.category == category }
         }
-        
-        private val unsupportedTargets = setOf(MKV, HEIC, MP3)
 
+        /** Targets reachable from [fromFormat] on this device (planner-driven). */
+        fun getSupportedConversions(fromFormat: FileFormat, context: Context): List<FileFormat> {
+            return ConversionPlanner.reachableTargets(fromFormat, FormatCapabilities.from(context))
+        }
+
+        /** @see getSupportedConversions with full capabilities (tests). */
+        fun getSupportedConversions(fromFormat: FileFormat, caps: FormatCapabilities): List<FileFormat> {
+            return ConversionPlanner.reachableTargets(fromFormat, caps)
+        }
+
+        /** Legacy entry without context — assumes all capabilities available. */
         fun getSupportedConversions(fromFormat: FileFormat): List<FileFormat> {
-            val sameCategory = when (fromFormat.category) {
-                FormatCategory.DOCUMENT -> getFormatsByCategory(FormatCategory.DOCUMENT)
-                    .filter { it != fromFormat }
-                FormatCategory.IMAGE -> getFormatsByCategory(FormatCategory.IMAGE)
-                    .filter { it != fromFormat && it !in unsupportedTargets }
-                FormatCategory.VIDEO -> getFormatsByCategory(FormatCategory.VIDEO)
-                    .filter { it !in unsupportedTargets }
-                FormatCategory.AUDIO -> getFormatsByCategory(FormatCategory.AUDIO)
-                    .filter { it !in unsupportedTargets }
-            }
-            val crossCategory = when {
-                fromFormat.category == FormatCategory.IMAGE ->
-                    listOf(FileFormat.PDF)
-                fromFormat == FileFormat.PDF ->
-                    listOf(FileFormat.JPG, FileFormat.PNG)
-                fromFormat.category == FormatCategory.VIDEO ->
-                    listOf(FileFormat.WAV, FileFormat.M4A)
-                else -> emptyList()
-            }
-            return (sameCategory + crossCategory).distinct()
+            return getSupportedConversions(fromFormat, FormatCapabilities.ALL)
         }
     }
 }
@@ -83,4 +84,4 @@ enum class FormatCategory {
     IMAGE,
     VIDEO,
     AUDIO
-} 
+}

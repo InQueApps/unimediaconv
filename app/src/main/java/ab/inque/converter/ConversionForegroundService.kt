@@ -1,5 +1,6 @@
 package ab.inque.converter
 
+import ab.inque.converter.pipeline.FormatResolver
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -210,7 +211,8 @@ class ConversionForegroundService : Service() {
         val total = tempFiles.size
 
         val allImages = tempFiles.all { f ->
-            FileFormat.fromExtension(f.extension)?.category == FormatCategory.IMAGE
+            val fmt = FormatResolver.fromFile(f)
+            fmt?.category == FormatCategory.IMAGE
         }
         if (allImages && work.targetFormat == FileFormat.PDF) {
             val file = converter.convertImagesToPdf(tempFiles, this@ConversionForegroundService) { p ->
@@ -229,11 +231,25 @@ class ConversionForegroundService : Service() {
 
             val p0 = i.toFloat() / total
             val p1 = (i + 1).toFloat() / total
-            val out = converter.convertFile(
-                file, work.targetFormat, this@ConversionForegroundService,
-                { p -> progressCallback(p0 + (p1 - p0) * p) },
-                work.scale, work.quality, work.toolOptions
-            )
+            val fileFormat = FormatResolver.fromFile(file)
+            val out = if (fileFormat == work.targetFormat &&
+                work.scale == null &&
+                !work.toolOptions.hasTrim &&
+                !work.toolOptions.hasSpeed &&
+                !work.toolOptions.hasFlip &&
+                !work.toolOptions.hasRotation
+            ) {
+                val copyOut = File(cacheDir, "${file.nameWithoutExtension}_batch_${i}.${work.targetFormat.extension}")
+                file.copyTo(copyOut, overwrite = true)
+                progressCallback(p1)
+                copyOut
+            } else {
+                converter.convertFile(
+                    file, work.targetFormat, this@ConversionForegroundService,
+                    { p -> progressCallback(p0 + (p1 - p0) * p) },
+                    work.scale, work.quality, work.toolOptions
+                )
+            }
             outputs.add(out)
         }
 

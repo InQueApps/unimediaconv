@@ -618,12 +618,7 @@ $content
         }
     }
     
-    private fun escapeRtfText(text: String): String {
-        return text.replace("\\", "\\\\")
-            .replace("{", "\\{")
-            .replace("}", "\\}")
-            .replace("\n", "\\par ")
-    }
+    private fun escapeRtfText(text: String): String = RtfUtil.escapeRtfText(text)
     
     private fun escapeHtml(text: String): String {
         return text.replace("&", "&amp;")

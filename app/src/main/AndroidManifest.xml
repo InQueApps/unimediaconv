@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <uses-sdk tools:overrideLibrary="androidx.heifwriter" />
+
     <!-- Billing / in-app purchases -->
     <uses-permission android:name="com.android.vending.BILLING" />
     <uses-permission android:name="android.permission.INTERNET" />
@@ -16,6 +18,20 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
+    <!-- Speech-to-text transcription (Audio -> Document) uses on-device speech recognition -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <!-- Allows discovery of the system text-to-speech and speech-recognition engines
+         (Android 11+ package visibility) -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+    </queries>
+
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -23,6 +39,7 @@
         android:icon="@drawable/umcicon"
         android:roundIcon="@drawable/umcicon"
         android:theme="@style/Theme.UniversalConverter"
+        android:usesCleartextTraffic="true"
         tools:targetApi="31">
 
         <!-- AdMob App ID -->
@@ -55,6 +72,12 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="umc" android:host="unlock" android:pathPrefix="/FRIENDSOFMRROMAN" />
             </intent-filter>
         </activity>
         <activity

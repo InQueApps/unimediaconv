@@ -38,4 +38,14 @@
         <item name="materialButtonStyle">@style/Widget.UniversalConverter.Button.Filled</item>
         <item name="materialButtonOutlinedStyle">@style/Widget.UniversalConverter.Button.Glass</item>
     </style>
+
+    <style name="Theme.UniversalConverter.Preview" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="android:colorBackground">@color/preview_background</item>
+        <item name="colorSurface">@color/preview_surface</item>
+        <item name="colorOnSurface">@color/preview_on_surface</item>
+        <item name="android:statusBarColor">@color/preview_background</item>
+        <item name="android:navigationBarColor">@color/preview_background</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+    </style>
 </resources>
