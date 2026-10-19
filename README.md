@@ -6,6 +6,14 @@
 
 ![Banner](media/banner.png)
 
+## Conversion matrix
+
+25 formats · **600** directed pairs on a fully capable device. **N** is native fidelity, **D** is simplified, **C** is a creative transform (OCR, speech, waveform, or slideshow). A blue outline marks a pair covered by an on-device test.
+
+![AnyConvert conversion matrix](scripts/conversion_matrix.svg)
+
+The same grid with hover routes lives in [`scripts/conversion_matrix.html`](scripts/conversion_matrix.html). [Open the rendered matrix](https://htmlpreview.github.io/?https://raw.githubusercontent.com/InQueApps/unimediaconv/main/scripts/conversion_matrix.html).
+
 ---
 
 ## What it does

@@ -4,6 +4,8 @@
 
 **File:** [`conversion_matrix.html`](conversion_matrix.html)
 
+The repo README shows [`conversion_matrix.svg`](conversion_matrix.svg), a static snapshot of this grid. Regenerate the SVG from the HTML if the matrix changes.
+
 Open in any browser. Shows:
 
 - **Category heatmap** — how many pairs connect document / image / video / audio (600 total on max device)
